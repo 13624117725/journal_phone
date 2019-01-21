@@ -1,0 +1,1006 @@
+<template>
+    <div class="journal" ref="Myjournal" @click="ClickNumChouse">
+        <div ref="journalBox" style="height:100%">
+            <swiper :options="swiperOption" ref="mySwiper" class="Myswiper">
+                <swiper-slide  class="Myswiper-slide firstslide" v-for="(item,index) in ArticleList" :key="index">
+                    <!-- <div v-if="index==0"  class="firstPage" :style=" `background:url(${item.imgurl}) center no-repeat;  background-size: contain;  background-color: #000;`">
+                    </div> -->
+                    <div class="contentsSty" v-show="item.articletype==0" ref="contentHTML" v-html="item.content"></div>
+                    <div class="Myiframe_box" v-show=" item.articletype==1" ref="Myiframe" style="position:relative;">
+                        <!-- <div class="prove" style="position:absolute;z-index:10001;" @click.stop="ToMoved(-1)"></div>
+                        <div class="next" @click.stop="ToMoved(1)"></div> -->
+                        <!-- <div class="masks" style="position:absolute;width:100%;height:100%;top:0;left:0;z-index:10000;"></div> -->
+                        <iframe style="z-index:2" class="Myiframe" frameborder="0" v-if="item.articletype==1" :src="item.content" :height="frameHeight" width="100%"></iframe>
+
+                    </div>
+
+                    <div class="commentList_box"  v-show="!ListLoad&&commentList.length>0">
+                        <div class="comment_title">精选留言</div>
+                        <ul>
+                            <li v-for="(its,index2) in commentList" :key="index2">
+                                <div class="left">
+                                    <img :src="its.headimgurl+ImgsmallSize" alt="">
+                                </div>
+                                <div class="right">
+                                    <div class="name">
+                                        {{its.nickname}}
+                                    </div>
+                                    <div class="content">
+                                        <p>
+                                            {{its.comment}}
+                                        </p>
+                                        <div class="Recomment">
+                                            <ul>
+                                                <li class="clearfix Recomment_li" v-for="(it,i) in its.recommentArr" :key="i" @click.stop="reComment(it,its.recommentArr)">
+                                                    <div class="Nickname">
+                                                        {{it.nickname+"&nbsp;"}}
+                                                    </div>
+                                                    <div class="huifu">
+                                                        回复：
+                                                    </div>
+                                                    <div class="RecommentInfo">
+                                                        {{it.comment}}
+                                                    </div>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="commentListLoad" v-show="ListLoad">
+                    </div>
+                </swiper-slide>
+                <div class="swiper-button-prev" slot="button-prev"  @click.stop=""></div>
+                <div class="swiper-button-next" slot="button-next" @click.stop=""></div>
+            </swiper>
+            <!-- <div class="prove" @click.stop="ToMoved(-1)"></div>
+            <div class="next" @click.stop="ToMoved(1)"></div> -->
+        </div>
+        <!-- 底部下菜单 -->
+        <div class="navBar" :class="{actived:ClickNum%2==1}">
+            <div class="btn" v-if="ArticleList[activedIndex]&& ArticleList[activedIndex].isZan==1">
+                <span class="heart2" ></span>
+                <span v-if="ArticleList[activedIndex]">{{ArticleList[activedIndex].likes}}</span>
+            </div>
+            <div class="btn" v-else @click.stop="getLikedata(ArticleList[activedIndex])">
+                <span class="heart"></span>
+                <span v-if="ArticleList[activedIndex]">{{ArticleList[activedIndex].likes}}</span>
+            </div>
+            <div class="btn" @click="ToComment">
+                <span class="comment" ></span>
+                <span>{{commentList.length}}</span>
+            </div>
+            <div class="btn" @click="ToShear">
+                <span class="shear"></span>
+                <span>{{sharecounts}}</span>
+            </div>
+            <div class="btn_menu" @click.stop="menuListShow">
+                <span class="menu"></span>
+            </div>
+        </div>
+        <div class="menuList" :class="{menus:menusCNum%2==1}" @click.stop="menuListShow">
+            <div class="top_btn"></div>
+            <div class="lists">
+                <ul>
+                    <li v-for="(item,index) in ArticleList" :key="index" @click="ToThePage(index)">
+                        <img :src="`${item.imgurl}?imageView2/1/w/120/h/160`" alt="">
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div v-if="imgList.length>0">
+            <previewer :list="imgList" ref="previewer" @on-close="previewerClose" ></previewer>
+        </div>
+        <div class="commons" v-show="commonsShow">
+            <x-textarea  class="mytextarea" :rows="1" v-model="comment" :autosize="true" placeholder="留言将在筛选后显示"></x-textarea>
+            <x-button class="my_button" mini v-if="!RecommonsShow"  @click.native="commentSave">提 交</x-button>
+            <x-button class="my_button" mini v-if="RecommonsShow"  @click.native="RecommentSave">回 复</x-button>
+        </div>
+        <div class="Fullmask" @click="ShearShow=false" v-show="ShearShow">
+            <div class="shearmsg">
+                点击右上角进行分享
+            </div>
+        </div>
+        <div class="Fullmask" @click.stop="commonsShow = false;RecommonsShow = false;" v-show="commonsShow"></div>
+    </div>
+</template>
+<script>
+    import { TransferDom ,XTextarea,XButton} from "vux"
+    import Previewer from "../../components/previewer"
+    import { setTimeout, setImmediate } from 'timers';
+    export default {
+        data() {
+            let self = this
+            return {
+                swiperOption:{
+                    resistanceRatio : 0,
+                    navigation: {
+                        nextEl: '.swiper-button-next',
+                        prevEl: '.swiper-button-prev'
+                    } ,
+                    on:{
+                        // 轮播滑动的函数
+                        slideChangeTransitionStart(){
+                            self.EditIMG(this.activeIndex)
+                        }
+                    }
+                },
+                comment:"",//评论内容
+                commonsShow:false,//评论展示
+                RecommonsShow:false,//回复展示
+                RecommonData:{},
+                ShearShow:false,
+                ordernum:0,//序号
+                imgList:[],//当前页图片个数
+                activedIndex:0,//当前页索引值
+                commentList:[],
+                ArticleList:[],
+                pageDomeData:{},
+                ClickNum:0,//网页的点击次数
+                menusCNum:0,//菜单点击次数
+                sharecounts:0,
+                openId:"",
+                LiskList:[],//收藏列表
+                frameHeight :0,
+                isReady:false,
+                ListLoad:true,
+            }
+        },
+        beforeCreate(){
+            this.$route.meta.title = this.$route.query.journalName
+        },
+        created(){
+            this.frameHeight = window.innerHeight*0.95
+        },
+        mounted(){
+            this.openId=localStorage.getItem("sub_openid");
+            let activedIndex = sessionStorage.getItem("activedIndex");
+            if(activedIndex){
+                this.activedIndex = Number(activedIndex);
+                sessionStorage.removeItem("activedIndex");
+            }
+            let likelist = sessionStorage.getItem("likelist");
+            if(likelist){
+                this.LiskList = JSON.parse(likelist)
+            }
+            this.sharecounts = this.$route.query.sharecounts
+            this.requireData();//初始化页面
+
+            // 制作分享
+            this.wxduanShare()
+            // console.log(this.$refs.journalBox);
+            let journalid = this.$route.query.journalid
+            this.shearNums(journalid)
+
+        },
+        components: {
+            Previewer,
+            XTextarea,
+            XButton
+        },
+        directives: {
+            TransferDom
+        },
+        methods:{
+            // 放大组件关闭
+            previewerClose(){
+                let VEDIODOM =  this.$refs.contentHTML[this.activedIndex].querySelectorAll('video');
+                VEDIODOM.forEach(ele=>{
+                    ele.classList.remove("novidio")
+                })
+            },
+            // iframes的点击处理函数
+            // addIfirmClick(n){
+            //     console.log(1)
+            //     let self = this;
+            //     var IframeOnClick = {
+            //         resolution: 200,
+            //         iframes: [],
+            //         interval: null,
+            //         Iframe: function() {
+            //             this.element = arguments[0];
+            //             this.cb = arguments[1];
+            //             this.hasTracked = false;
+            //         },
+            //         track: function(element, cb) {
+            //             this.iframes.push(new this.Iframe(element, cb));
+            //             if (!this.interval) {
+            //                 var _this = this;
+            //                 this.interval = setInterval(function() { _this.checkClick(); }, this.resolution);
+            //             }
+            //         },
+            //         checkClick: function() {
+            //             if (document.activeElement) {
+            //                 var activeElement = document.activeElement;
+            //                 for (var i in this.iframes) {
+            //                     if (activeElement === this.iframes[i].element) { // user is in this Iframe
+            //                         if (this.iframes[i].hasTracked == false) {
+            //                             this.iframes[i].cb.apply(window, []);
+            //                             this.iframes[i].hasTracked = true;
+            //                         }
+            //                     } else {
+            //                         this.iframes[i].hasTracked = false;
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //     };
+
+            //     IframeOnClick.track(this.$refs['Myiframe'][n].querySelector("iframe"), () =>{
+            //         this.ClickNumChouse()
+            //      });
+            // },
+            // 处理页面的图片点击
+            EditIMG(n){
+                this.isReady = false
+                this.activedIndex = n;
+                console.log( this.activedIndex)
+
+                this.ClickNum = 0
+
+                this.JournDetial(this.ArticleList[n].id).then(res=>{
+                    if(res.Code==200){
+                        this.pageDomeData = res.Data;
+                    }
+                    this.LiskList.forEach(its=>{
+                        if(its.articleid==this.pageDomeData.id){
+                            this.pageDomeData.isZan = 1;
+                        }
+                    })
+                    this.ArticleList[n] = this.pageDomeData
+                    this.fondComment(this.pageDomeData.id,n)
+                    if(this.pageDomeData.articletype==1){
+                        return false;
+                    }
+                    let timer2 = setTimeout(()=>{
+                        this.imgList = [];
+                        let IMGDOM = this.$refs.contentHTML[n].querySelectorAll('img');
+                        let VEDIODOM = this.$refs.contentHTML[n].querySelectorAll('video');
+                        console.log('01',this.pageDomeData.articletype)
+                        if(this.pageDomeData.articletype==0){
+                            IMGDOM.forEach((element,index )=> {
+                                let obj = {
+                                    src: element.src,
+                                    type: 0
+                                }
+                                this.imgList.push(obj)
+                                element.addEventListener("click",(event)=>{
+                                    event.stopPropagation();
+                                    VEDIODOM.forEach(item=>{
+                                        item.classList.add("novidio")
+                                    })
+                                    this.$refs.previewer.show(index);
+
+                                },false);
+                            });
+                            VEDIODOM.forEach((element,index )=> {
+                                element.style = "width:100%;height:100%;object-fit: fill;vertical-align: top;"
+                                element.setAttribute('x5-video-player-fullscreen',"true")
+                                element.setAttribute('webkit-playsinline',"true")
+                                element.setAttribute('playsinline',"true")
+                                element.setAttribute('x-webkit-airplay',"true")
+                                element.setAttribute('tabindex',"-1")
+                                element.setAttribute('x5-playsinline',"true");
+
+                                let parent = element.parentNode
+                                parent.style="position: relative;display: block;"
+                                element.classList.add("Noopacity")
+                                let divDom  = document.createElement("div");
+                                divDom.classList.add("Play")
+                                divDom.addEventListener("click",(event)=>{
+                                    event.stopPropagation();
+                                    element.classList.remove("Noopacity")
+                                    element.play();
+
+                                    divDom.classList.add("novidio")
+                                },false)
+                                divDom.style = `background: url('${element.src}?vframe/jpg/offset/3') center no-repeat; background-size: 100% 100%; position: absolute;top: 0px;left: 0px;height: 100%;width: 100%;`
+                                parent.appendChild(divDom);
+                            });
+                        }else{
+                            // let self = this
+                            // let Iframedom = this.$refs.Myiframe[n].querySelector("iframe");
+                            // console.log(12,Iframedom)
+                            // self.addIfirmClick(n)
+                            // Iframedom.addEventListener("load",()=>{
+                            //      console.log(11,Iframedom.contentWindow.document);w
+                            // },false)
+                            // setTimeout(()=>{
+                            //     let startX;
+                            //     let startY;
+                            //     let endX;
+                            //     let endY;
+                            //     let distanceX;
+                            //     let distanceY;
+                            //     console.log(Iframedom.contentWindow.document)
+                            //     Iframedom.contentWindow.document.querySelector("body").addEventListener("touchstart",(e)=>{
+                            //         console.log(e)
+                            //         startX = e.targetTouches[0].pageX;
+                            //         startY = e.targetTouches[0].pageY;
+
+                            //     })
+                            //      Iframedom.contentWindow.document.querySelector("body").addEventListener("touchend",(e)=>{
+                            //          console.log(1,e)
+                            //          endX = e.targetTouches[0].pageX;
+                            //         endY = e.targetTouches[0].pageY;
+                            //         distanceX = endX - startX;
+                            //         distanceY = endY - startY
+                            //          if(Math.abs(distanceX)>Math.abs(distanceY) && distanceX>($(window).width()/2)){
+                            //             if(n !=0){
+                            //                 self.mySwiper.slideTo(n -1);
+                            //             }
+                            //             console.log('往右滑动');
+                            //         }else if(Math.abs(distanceX)>Math.abs(distanceY) && distanceX<-($(window).width()/2)){
+                            //             if(n != (sum-1)){
+                            //                self.mySwiper.slideTo(n+1);
+                            //             }
+                            //             console.log('往左滑动');
+                            //         }
+                            //     })
+                            // },3000)
+                            // Iframedom.addEventListener("click",()=>{alert(1)})
+
+                            // Iframedom.onload=function(){
+
+
+                                // let bHeight = Iframedom.contentWindow.document.body.scrollHeight;
+                                // let dHeight = Iframedom.contentWindow.document.documentElement.scrollHeight;
+                                // let height = Math.max(bHeight, dHeight); // 取最大值
+                                // if(height > this.frameHeight){
+                                //   Iframedom.height = height;
+                                // }
+
+
+
+                                // Iframedom.contentWindow.document.body.addEventListener("click",()=>{
+
+                                // })
+
+                            // }
+
+                            // Iframe.addEventListener("touchstart ",()=>{
+                            //     console.log(123)
+                            //     alert(1)
+
+                            // },)
+                            // console.log(this.$refs.contentHTML[n])
+                            // var bHeight = Iframe.contentWindow.document.body.scrollHeight;
+                            // var dHeight = Iframe.contentWindow.document.documentElement.scrollHeight;
+                            // var height = Math.max(bHeight, dHeight); // 取最大值
+                            // Iframe.height = height;
+                            // console.log(12,height)
+                        //    this.addIfirmClick()
+                        };
+
+                    })
+                    // let slideDom = this.$refs.journalBox.querySelectorAll('.Myswiper-slide')
+
+                    // console.log(111,slideDom)
+
+                },80)
+
+                //     this.fondComment(this.pageDomeData.id,n).then(()=>{
+
+
+
+                //     // let timer1 = setTimeout(()=>{
+
+
+                //     // },50)
+                // });
+
+
+            },
+            makeSharedata(){
+
+            },
+            ToMoved(n){
+                if(n==1&&this.activedIndex>=this.ArticleList.length){
+                    return false
+                }
+                if(n==-1&&this.activedIndex<=0){
+                    return false
+                }
+                this.mySwiper.slideTo(this.activedIndex+n, 800, false)
+                this.EditIMG(this.activedIndex+n)
+            },
+
+            // 微信端的分享
+            wxduanShare() {
+                let self = this
+                let shearObj = {
+                    title:this.$route.query.journalName,
+                    desc:this.$route.query.disc,
+                    imgUrl:this.$route.query.imgurl,
+                }
+                let journalid = this.$route.query.journalid
+                this.ShearPost('openweixin/jsapi/getJsapiSignature?local_url=' + encodeURIComponent(location.href.split('#')[0]), {}).then(response=>{
+                    this.$wechat.config({
+                        debug: false, // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。
+                        appId: response.appid, // 必填，公众号的唯一标识
+                        timestamp: parseInt(response.timestamp), // 必填，生成签名的时间戳
+                        nonceStr: response.noncestr, // 必填，生成签名的随机串
+                        signature: response.signature, // 必填，签名，见附录1
+                        jsApiList: [
+                            'onMenuShareAppMessage',
+                            'onMenuShareTimeline'
+                        ] // 必填，需要使用的JS接口列表，所有JS接口列表见附录2
+                    });
+
+                    this.$wechat.ready(()=>{
+                    // 分享给朋友
+                    this.$wechat.onMenuShareAppMessage({
+                        title: shearObj.title, //标题
+                        desc: shearObj.desc, //描述
+                        link: window.location.href, //连接地址指打开分享时页面地址
+                        imgUrl:  shearObj.imgUrl, //图片
+                        trigger(res) {
+                        // 不要尝试在trigger中使用ajax异步请求修改本次分享的内容，因为客户端分享操作是一个同步操作，这时候使用ajax的回包会还没有返回
+                        },
+                        success(res) {
+                            this.shearNums(journalid)
+                        },
+                        cancel(res) {
+
+                        },
+                        fail(res) {
+                            self.msgalert("分享失败");
+                        }
+                    });
+                    // 分享到朋友圈
+
+                    this.$wechat.onMenuShareTimeline({
+                        title: shearObj.title, //标题
+                        desc: shearObj.desc, //描述
+                        link: window.location.href, //连接地址指打开分享时页面地址
+                        imgUrl:  shearObj.imgUrl, //图片
+                        trigger(res) {
+                        // 不要尝试在trigger中使用ajax异步请求修改本次分享的内容，因为客户端分享操作是一个同步操作，这时候使用ajax的回包会还没有返回
+                        },
+                        success(res) {
+                            this.shearNums(journalid)
+                        },
+                        cancel(res) {
+                        self.msgalert("已取消");
+
+                        },
+                        fail(res) {
+                        self.msgalert("分享失败");
+                        }
+                    });
+                    self.$wechat.error(function(res) {
+                    });
+
+                    })
+                })
+            },
+            msgalert(msg) {
+                this.$vux.toast.show({
+                    text: msg,
+                    type: "text"
+                });
+            },
+            // 点赞
+            getLikedata(Data){
+                this.get(`EjArticleLike?openid=${this.openId}&articleid=${Data.id}`).then(res=>{
+                    if(res.Code==200){
+                        this.get(`GetEjArticlelikelistWhere?cond=openid&arg=${this.openId}`).then(Response=>{
+                            if(Response.Code==200){
+                                sessionStorage.setItem("likelist",JSON.stringify(Response.Data));
+                                Data.isZan=1;
+                                Data.likes+=1;
+                            }
+                        })
+                    }
+                }).then(()=>{
+
+                })
+            },
+            // 分享统计
+            shearNums(id){
+                console.log(1,id);
+                this.get(`Share?journalid=${id}`).then(res=>{
+                    console.log(2,res)
+                    this.ShearShow=false
+                })
+            },
+            // 点击大页面出现隐藏菜单
+            ClickNumChouse(){
+                if(this.menusCNum%2==0){
+                    this.ClickNum++;
+                }
+            },
+            // 出现隐藏导航
+            menuListShow(){
+                this.menusCNum++;
+            },
+            // 页面定位
+            ToThePage(n){
+                this.mySwiper.slideTo(n, 0, false)
+                this.ClickNum = 0
+            },
+            // 初始数据
+            requireData(){
+                let jId = this.$route.query.journalid
+                this.get(`GetEjArticlelistWhere?cond=journalid&arg=${jId}`).then(res=>{
+                    this.ArticleList = res.Data;
+                    this.ArticleList.forEach(item=>{
+                        item.isZan = 0;
+                    })
+                    // let timer4 = setTimeout(()=>{
+                    //     console.log(this.$refs.mySwiper)
+                    // },200)
+                    this.EditIMG(this.activedIndex)
+                })
+            },
+            // 评论列表
+            fondComment(jId,n){
+                this.ListLoad = true;
+                this.commentList = []
+                this.ArticleList[n].commentList = []
+                setTimeout(()=>{
+                    if(n==this.activedIndex){
+                        return this.get(`GetEjArticlecommentWhere?cond=articleid&arg=${jId}`).then(res=>{
+                            if(res.Code==200){
+                                let cids = "";
+                                res.Data.forEach(item=>{
+                                    item.recommentArr = [];
+                                    cids += (item.id+",")
+                                })
+                                this.commentList = res.Data
+                                cids = cids.substring(0,cids.length-1)
+                                this.get(`GetEjCommentreplayByCids?cids=${cids}`).then(resp=>{
+                                    if(resp.Code==200){
+                                        resp.Data.forEach(its=>{
+                                            this.commentList.forEach(item=>{
+                                                if(its.commentid==item.id){
+                                                    item.recommentArr.push(its)
+                                                }
+                                            })
+                                        })
+                                    }
+                                })
+                                this.ArticleList[n].commentList= res.Data
+                                this.ListLoad = false;
+
+                            }
+                        })
+                    }
+
+                },3000)
+
+            },
+             // 获取杂志详情
+            JournDetial(id){
+                return this.get(`GetEjArticlelistFirst?cond=id&arg=${id}`).then(res=>{
+                    return res
+                })
+            },
+            // 开始评论
+            ToComment(){
+                this.commonsShow = true;
+                this.RecommonsShow = false;
+            },
+            // 开始分享
+            ToShear(){
+                this.ShearShow = true;
+
+            },
+            // 保存评论
+            commentSave(){
+                let articleid = this.ArticleList[this.activedIndex].id
+                let nickname = localStorage.getItem("sup_nickname");
+                let headimgurl = localStorage.getItem("sup_headimgurl");
+                let openid = localStorage.getItem("sub_openid");
+                let Data = {
+                    articleid,
+                    nickname,
+                    headimgurl,
+                    comment:this.comment,
+                    openid,
+                    ordernum:this.commentList.length
+                }
+                if(Data.comment){
+                    this.post("EjArticlecommentSave",Data).then(res=>{
+                        if(res.Code==200){
+                            this.commonsShow = false;
+                            this.RecommonsShow = false;
+                        }
+                    })
+                }else{
+                    this.$vux.toast.show({
+                        text: "请完成您的评论内容",
+                        type: "text",
+                        width:"11em"
+                    });
+                }
+
+            },
+            // 回复
+            reComment(it,arr){
+                this.commonsShow = true;
+                this.RecommonsShow = true;
+                this.RecommonData = it
+                this.ordernum = arr.length
+            },
+            // 保存回复
+            RecommentSave(item){
+                let articleid = this.ArticleList[this.activedIndex].id
+                let nickname = localStorage.getItem("sup_nickname");
+                let headimgurl = localStorage.getItem("sup_headimgurl");
+                let openid = localStorage.getItem("sub_openid");
+                let uPdata = {
+                    comment:this.comment,
+                    commentid:this.RecommonData.commentid,
+                    headimgurl,
+                    nickname,
+                    openid,
+                    ordernum:this.ordernum
+                }
+                if(uPdata.comment){
+                    this.post(`EjCommentreplySave`,uPdata).then(res=>{
+                        this.commonsShow = false;
+                        this.RecommonsShow = false;
+
+                    })
+                }else{
+                    this.$vux.toast.show({
+                        text: "请完成您的回复内容",
+                        type: "text",
+                        width:"11em"
+                    });
+                }
+
+
+            },
+
+        },
+        computed:{
+            mySwiper(){
+                return this.$refs.mySwiper.swiper
+            }
+        },
+        watch:{
+            commonsShow(){
+                if(!this.commonsShow){
+                    this.comment = ""
+                }
+            }
+        }
+   }
+</script>
+
+<style scoped lang="less">
+.journal{
+    overflow: hidden !important;
+    position: relative;
+    background-color: #EFEFEF;
+    .Myswiper{
+        height: 100%;
+        position: relative;
+    }
+    .Noopacity{
+        opacity: 0;
+    }
+    .swiper-button-prev{
+        z-index: 10000000;
+    }
+    .Fullmask{
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, .6);
+        z-index: 59;
+        .shearmsg{
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            top: 0;
+            margin: auto;
+            height: 1rem;
+            line-height: 1rem;
+            font-size: .5rem;
+            color: #fff;
+
+        }
+    }
+    .commons{
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        min-height: 96px;
+        max-height: 156px;
+        overflow-y: auto;
+        width: 100%;
+        z-index: 100;
+        background-color: #fff;
+        padding: .2rem .2rem 0;
+        .mytextarea{
+            width: 76%;
+            // border:1px solid #ccc;
+            border-radius: 5px;
+        }
+        .my_button{
+            background-color: #ccc;
+            border: none;
+            position: absolute;
+            right: .2rem;
+            top: 0.18rem;
+            width: 22%;
+            color: #fff;
+        }
+    }
+    .Myiframe_box{
+        z-index: 2;
+        background-color: #eee;
+    }
+    .next,.prove{
+        z-index: 100000;
+        height: 1rem;
+        width: 1rem;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: red;
+    }
+    .prove{
+            left: 0;
+    }
+    .next{
+            right: 0;
+    }
+    .Myiframe{
+        width: 100%;
+    }
+    .commentList_box{
+        .comment_title{
+            height: 0.6rem;
+            line-height: 0.6rem;
+            font-size: 0.26rem;
+            padding: 0 0.3rem;
+            text-align: left;
+        }
+        li{
+            width: 100%;
+            padding: .2rem 0.3rem;
+            box-sizing: border-box;
+            .left{
+                width: .7rem;
+                height: .7rem;
+                float: left;
+                img{
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 50%;
+                }
+            }
+            .right{
+                margin-left: 1rem;
+                .name{
+                    text-align: left;
+                    font:400 0.3rem/0.32rem "Microsoft Yahei";
+                    color:#999;
+                }
+                .content{
+                    p{
+                        margin: 0;
+                        text-align: left;
+                        font:400 0.3rem/0.6rem "Microsoft Yahei";
+                        color:#000;
+                    }
+                    .Recomment{
+                        .Recomment_li{
+                            padding: 0 5px;
+                            background-color: #eee;
+                            border-radius: 3px;
+                        }
+                        .Nickname{
+                            float: left;
+                            padding: 0;
+                            line-height: .36rem;
+                            font-size: .24rem;
+                            color:deepskyblue;
+
+                        }
+                        .huifu{
+                            float: left;
+                            padding: 0 ;
+                            line-height: .36rem;
+                            font-size: .24rem;
+                            color:#333;
+                        }
+                        .RecommentInfo{
+                            float: left;
+                            padding: 0;
+                            line-height: .36rem;
+                            font-size: .24rem;
+                            color:#999;
+                        }
+
+                    }
+
+                }
+            }
+        }
+
+    }
+    .commentListLoad{
+        height: 140px;
+        background: url("http://img.mp.itc.cn/upload/20170414/d55b84f2d64c490ba617de0c397521ec.gif") center no-repeat;
+        background-size: 80%;
+
+    }
+    .navBar{
+        height: 40px;
+        width: 100%;
+        background-color: #000;
+        position: absolute;
+        bottom: -40px;
+        left: 0;
+        z-index: 3;
+        transition: bottom 0.4s;
+        &.actived{
+            bottom:0;
+        }
+        .btn{
+            float: left;
+            width: 90px;
+            height: 40px;
+
+            span{
+                width: 40px;
+                float: left;
+                height: 40px;
+                color:#fff;
+                text-align: left;
+                line-height: 40px;
+            }
+            .heart{
+                background: url("../../assets/img/images/heart.png") center 10% no-repeat;
+                background-size: 80%;
+            }
+            .heart2{
+                background: url("../../assets/img/images/heart1.png") center 10% no-repeat;
+                background-size: 80%;
+            }
+            .comment{
+                background: url("../../assets/img/images/comment.png") center 10% no-repeat;
+                background-size: 80%;
+            }
+            .shear{
+                background: url("../../assets/img/images/shear.png") center 10% no-repeat;
+                background-size: 80%;
+            }
+
+        }
+        .btn_menu{
+            float: right;
+            width: 40px;
+            height: 40px;
+            .menu{
+                float: right;
+                width: 40px;
+                height: 40px;
+                background: url("../../assets/img/images/menus.png") center 10% no-repeat;
+                background-size: 72%;
+            }
+        }
+    }
+    .menuList{
+        height: 240px;
+        width:100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        position: absolute;
+        bottom: -240px;
+        left: 0;
+        z-index: 2;
+        transition: bottom 0.4s;
+        &.menus{
+          bottom:0
+        }
+        .top_btn{
+            height: 30px;
+            background: url("../../assets/img/images/downs.png") center no-repeat;
+            background-size: contain;
+        }
+        .lists{
+            height: 165px;
+            overflow-x: auto;
+        }
+
+        ul{
+            white-space: nowrap;
+            text-align: left;
+            li{
+                display: inline-block;
+                vertical-align: top;
+                height: 160px;
+                margin-left: 5px;
+                width:120px;
+                background-color: #000;
+                margin-right: 5px;
+                line-height: 160px;
+                img{
+                    width: 100%;
+                    margin: auto;
+                }
+            }
+        }
+    }
+
+}
+
+</style>
+<style lang="less">
+.journal{
+    .Myswiper-slide{
+        height: 100%;
+        overflow-y: auto;
+        .firstPage{
+            width: 100%;
+            height: 100%;
+        }
+    }
+    .contentsSty{
+        .novidio{
+            display: none;
+        }
+        .Play{
+            position: relative;
+            &::before{
+                content:"";
+                position: absolute;
+                width: .8rem;
+                height: .8rem;
+                top:50% ;
+                left: 50%;
+                transform:translate(-50%,-50%);
+                background: url("../../assets/img/images/play.png") center no-repeat;
+                background-size: 36%;
+                background-color: rgba(255,255,255,.7);
+                border-radius:50%;
+            }
+        }
+        padding:.3rem;
+        *{
+            font-size:0.3rem;
+            text-align:left;
+        }
+        table{
+
+            border-spacing: 0;
+            th,tr{
+
+            }
+            td{
+                border:1px solid #ccc;
+            }
+            ol,ol>li{
+                margin:5px 0;
+                list-style:decimal;
+            }
+            ul,ol{
+                padding-left:20px;
+            }
+            ul,ul>li{
+                margin:5px 0;
+                list-style:disc;
+            }
+        }
+        img{
+            width: 100%;
+            margin:10px 0;
+        }
+        video{
+            margin:10px 0;
+            width: 100%;
+        }
+    }
+
+}
+</style>

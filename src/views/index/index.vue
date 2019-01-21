@@ -1,0 +1,197 @@
+<template>
+    <div class="firstPage">
+        <ul>
+            <li class="book_box" v-for="(item ,index) in JournalList" :key="index" @click="showJournal(item)">
+                <img :src="`${item.imgurl}?imageView2/0/w/390`" alt="">
+                <div class="mask"></div>
+            </li>
+        </ul>
+    </div>
+</template>
+<script>
+import { Qrcode } from "vux";
+export default {
+    data() {
+        return {
+            publish: 1,
+            JournalList: [],
+            CollectIdList: [],
+            CollectArr: [],
+            pagesNum: 1,
+            openId: ""
+        };
+    },
+    created(){
+
+        if(window.location.href.indexOf("journalid")){
+            let str = window.location.href.split("journalid=")[1];
+            if(str){
+                let journalid = window.location.href.split("journalid=")[1].split("&")[0]
+                let Sindex =  window.location.href.split("sIndex=")[1].split("&")[0].split("#")[0];
+                window.location.href = `${window.location.href.split("?")[0]}#/journal?journalid=${journalid}&sIndex=${Sindex}`
+                return false
+            }
+        }
+
+    },
+    mounted() {
+        this.wxduanShare();
+        this.openId = localStorage.getItem("sub_openid");
+        this.reqData().then(() => {
+            this.getIsLikedata();
+        });
+    },
+    methods: {
+        //  初始化页面
+        reqData() {
+            let URL = "";
+            if (this.$route.query.isPublish == 0) {
+                URL = "GetEjJournallistWhere";
+            } else {
+                URL = `GetEjJournallistWhere?cond=ispublished&arg=${
+                    this.publish
+                }`;
+            }
+            return this.get(URL).then(res => {
+                if (res.Code == 200) {
+                    this.JournalList = res.Data.reverse();
+                }
+            });
+        },
+        // 点赞列表
+        getIsLikedata() {
+            this.get(
+                `GetEjArticlelikelistWhere?cond=openid&arg=${this.openId}`
+            ).then(res => {
+                if (res.Code == 200) {
+                    sessionStorage.setItem(
+                        "likelist",
+                        JSON.stringify(res.Data)
+                    );
+                }
+            });
+        },
+        // 微信端的分享
+        wxduanShare() {
+            // 分享给朋友
+            let self = this;
+            this.ShearPost(
+                "openweixin/jsapi/getJsapiSignature?local_url=" +
+                    encodeURIComponent(location.href.split("#")[0]),
+                {}
+            ).then(response => {
+                self.$wechat.config({
+                    debug: false, // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。
+                    appId: response.appid, // 必填，公众号的唯一标识
+                    timestamp: parseInt(response.timestamp), // 必填，生成签名的时间戳
+                    nonceStr: response.noncestr, // 必填，生成签名的随机串
+                    signature: response.signature, // 必填，签名，见附录1
+                    jsApiList: ["onMenuShareAppMessage", "onMenuShareTimeline"] // 必填，需要使用的JS接口列表，所有JS接口列表见附录2
+                });
+
+                self.$wechat.ready(() => {
+                    // 分享给朋友
+                    self.$wechat.onMenuShareAppMessage({
+                        title: "电子期刊", //标题
+                        desc: "国安电子期刊", //描述
+                        link: window.location.href, //连接地址指打开分享时页面地址
+                        imgUrl:
+                            "https://img.guoanfamily.com/handbook/120/1535957652061145877.jpg?imageView2/1/w/120/h/190", //图片
+                        trigger(res) {
+                            // 不要尝试在trigger中使用ajax异步请求修改本次分享的内容，因为客户端分享操作是一个同步操作，这时候使用ajax的回包会还没有返回
+                        },
+                        success(res) {},
+                        cancel(res) {},
+                        fail(res) {
+                            self.msgalert("分享失败");
+                        }
+                    });
+                    // 分享到朋友圈
+                    self.$wechat.onMenuShareTimeline({
+                        title: "电子期刊", //标题
+                        desc: "国安电子期刊", //描述
+                        link: window.location.href, //连接地址指打开分享时页面地址
+                        imgUrl:
+                            "https://img.guoanfamily.com/handbook/120/1535957652061145877.jpg?imageView2/1/w/120/h/190", //图片
+
+                        trigger(res) {
+                            // 不要尝试在trigger中使用ajax异步请求修改本次分享的内容，因为客户端分享操作是一个同步操作，这时候使用ajax的回包会还没有返回
+                        },
+                        success(res) {},
+                        cancel(res) {
+                            self.msgalert("已取消");
+                        },
+                        fail(res) {
+                            self.msgalert("分享失败");
+                        }
+                    });
+                    self.$wechat.error(function(res) {});
+                });
+            });
+        },
+        msgalert(msg) {
+            this.$vux.toast.show({
+                text: msg,
+                type: "text"
+            });
+        },
+        // 判断是否开放
+        testFinished() {
+            this.$vux.toast.show({
+                text: "敬请期待",
+                type: "text"
+            });
+        },
+        showJournal(item) {
+            this.$router.replace({
+                name: "journal",
+                query: {
+                    journalid: item.id
+                }
+            });
+        }
+    },
+    components: {
+        Qrcode
+    }
+};
+</script>
+
+<style scoped lang="less">
+.firstPage {
+    z-index: 100;
+    overflow: auto;
+
+    .book_box {
+        padding: 0;
+        margin: 0;
+        // height: 4.2rem;
+        margin-bottom: 25px;
+        box-shadow: 3px 3px 10px #BBB;
+        position: relative;
+        img {
+            width: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        .mask {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+    }
+}
+</style>
+<style lang="less">
+.erWeiMa_box {
+    img {
+        width: 1rem !important;
+        height: 1rem !important;
+        padding: 0;
+        vertical-align: top;
+    }
+}
+</style>

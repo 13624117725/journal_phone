@@ -1,0 +1,687 @@
+<template>
+    <div class="journal" @click="ClickNumChouse">
+        <swiper :options="swiperOption" ref="mySwiper" class="Myswiper">
+            <swiper-slide class="Myswiper-slide firstslide" v-for="(item,index) in ArticleList" :key="index">
+                <!-- <div v-if="index==0"  class="firstPage" :style=" `background:url(${item.imgurl}) center no-repeat;  background-size: contain;  background-color: #000;`">
+                </div> -->
+
+                <div class="contentsSty" v-show="item.articletype==0" ref="contentHTML" v-html="item.content"></div>
+                <div class="Myiframe_box" v-show="item.articletype==1" ref="Myiframe">
+                    <iframe  class="Myiframe"  name="ifd"   frameborder="0" :src="item.content" :height="frameHeight" width="100%"></iframe>
+                </div>
+                <div class="commentList_box">
+                    <div class="comment_title">精选留言</div>
+                    <ul>
+                        <li v-for="(item,index) in commentList" :key="index">
+                            <div class="left">
+                                <img :src="item.headimgurl+ImgsmallSize" alt="">
+                            </div>
+                            <div class="right">
+                                <div class="name">
+                                    {{item.nickname}}
+                                </div>
+                                <div class="content">
+                                    {{item.comment}}
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </swiper-slide>
+        </swiper>
+        <!-- 底部下菜单 -->
+        <div class="navBar" :class="{actived:ClickNum%2==1}">
+            <div class="btn" v-if="ArticleList[activedIndex]&&ArticleList[activedIndex].isZan==0" @click.stop="getLikedata(ArticleList[activedIndex])">
+                <span class="heart"></span>
+                <span v-if="ArticleList[activedIndex]">{{ArticleList[activedIndex].likes}}</span>
+            </div>
+            <div class="btn" v-if="ArticleList[activedIndex]&& ArticleList[activedIndex].isZan==1">
+                <span class="heart2" ></span>
+                <span v-if="ArticleList[activedIndex]">{{ArticleList[activedIndex].likes}}</span>
+            </div>
+            <div class="btn">
+                <span class="comment" @click="ToComment"></span>
+                <span>{{commentList.length}}</span>
+            </div>
+            <div class="btn">
+                <span class="shear"></span>
+                <span>{{sharecounts}}</span>
+            </div>
+            <div class="btn_menu" @click.stop="menuListShow">
+                <span class="menu"></span>
+            </div>
+        </div>
+        <div class="menuList" :class="{menus:menusCNum%2==1}" @click.stop="menuListShow">
+            <div class="top_btn"></div>
+            <div class="lists">
+                <ul>
+                    <li v-for="(item,index) in ArticleList" :key="index" @click.stop="ToThePage(index)">
+                        <img :src="`${item.imgurl}?imageView2/1/w/120/h/160`" alt="">
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div v-if="imgList.length>0">
+            <previewer :list="imgList" ref="previewer" @on-close="previewerClose" ></previewer>
+        </div>
+    </div>
+</template>
+<script>
+    import { TransferDom } from "vux"
+    import Previewer from "../../components/previewer"
+    import { setTimeout, setImmediate } from 'timers';
+    export default {
+        data() {
+            let self = this
+            return {
+                swiperOption:{
+                    resistanceRatio : 0,
+                    on:{
+                        // 轮播滑动的函数
+                        slideChangeTransitionStart(){
+                            self.EditIMG(this.activeIndex)
+                        }
+                    }
+                },
+                imgList:[],//当前页图片个数
+                activedIndex:0,//当前页索引值
+                commentList:[],
+                ArticleList:[],
+                pageDomeData:{},
+                ClickNum:0,//网页的点击次数
+                menusCNum:0,//菜单点击次数
+                sharecounts:0,
+                openId:"",
+                LiskList:[],//收藏列表
+                frameHeight :0,
+
+            }
+        },
+        beforeCreate(){
+            this.$route.meta.title = this.$route.query.journalName
+        },
+        created(){
+            this.frameHeight = window.innerHeight
+        },
+        mounted(){
+            this.openId=localStorage.getItem("sub_openid");
+            let activedIndex = sessionStorage.getItem("activedIndex");
+            if(activedIndex){
+                this.activedIndex = Number(activedIndex);
+                sessionStorage.removeItem("activedIndex");
+            }
+            let likelist = sessionStorage.getItem("likelist");
+            if(likelist){
+                this.LiskList = JSON.parse(likelist)
+            }
+            this.sharecounts = this.$route.query.sharecounts
+            this.requireData();//初始化页面
+            // 制作分享
+            this.wxduanShare()
+        },
+        components: {
+            Previewer
+        },
+        directives: {
+            TransferDom
+        },
+        methods:{
+            // 放大组件关闭
+            previewerClose(){
+               let VEDIODOM =  this.$refs.contentHTML[this.activedIndex].querySelectorAll('video');
+                VEDIODOM.forEach(ele=>{
+                    ele.classList.remove("novidio")
+                })
+            },
+            // iframes的点击处理函数
+            addIfirmClick(){
+                let self = this;
+                var IframeOnClick = {
+                    resolution: 200,
+                    iframes: [],
+                    interval: null,
+                    Iframe: function() {
+                        this.element = arguments[0];
+                        this.cb = arguments[1];
+                        this.hasTracked = false;
+                    },
+                    track: function(element, cb) {
+                        this.iframes.push(new this.Iframe(element, cb));
+                        if (!this.interval) {
+                            var _this = this;
+                            this.interval = setInterval(function() { _this.checkClick(); }, this.resolution);
+                        }
+                    },
+                    checkClick: function() {
+                        if (document.activeElement) {
+                            var activeElement = document.activeElement;
+                            for (var i in this.iframes) {
+                                if (activeElement === this.iframes[i].element) { // user is in this Iframe
+                                    if (this.iframes[i].hasTracked == false) {
+                                        this.iframes[i].cb.apply(window, []);
+                                        this.iframes[i].hasTracked = true;
+                                    }
+                                } else {
+                                    this.iframes[i].hasTracked = false;
+                                }
+                            }
+                        }
+                    }
+                };
+
+                IframeOnClick.track(this.$refs['Myiframe'][0].querySelector("iFrame"), () =>{
+                    this.ClickNumChouse()
+                 });
+            },
+            // 处理页面的图片点击
+            EditIMG(n){
+
+
+                this.activedIndex = n;
+                this.ClickNum = 0
+                this.JournDetial(this.ArticleList[n].id).then(res=>{
+                    if(res.Code==200){
+                        this.pageDomeData = res.Data;
+
+                    }
+                    this.LiskList.forEach(its=>{
+                        if(its.articleid==this.pageDomeData.id){
+                            this.pageDomeData.isZan = 1;
+                        }
+                    })
+                    this.ArticleList[n] = this.pageDomeData
+                    this.fondComment(this.pageDomeData.id)
+
+                    // this.$refs.contentHTML[n].addEventListener("DOMContentLoaded", function(event) {
+                    //     console.log(123)
+                    // });
+
+                    let timer1 = setTimeout(()=>{
+                        this.imgList = [];
+                        let IMGDOM = this.$refs.contentHTML[n].querySelectorAll('img');
+                        let VEDIODOM = this.$refs.contentHTML[n].querySelectorAll('video');
+
+                        if(this.pageDomeData.articletype==0){
+                            IMGDOM.forEach((element,index )=> {
+                                let obj = {
+                                    src: element.src,
+                                    type: 0
+                                }
+                                this.imgList.push(obj)
+                                element.addEventListener("click",(event)=>{
+                                    event.stopPropagation();
+                                    VEDIODOM.forEach(item=>{
+                                        item.classList.add("novidio")
+                                    })
+                                    this.$refs.previewer.show(index);
+
+                                },false);
+                            });
+                            VEDIODOM.forEach((element,index )=> {
+                                element.style = "width:100%;height:100%;object-fit: fill;vertical-align: top;"
+                                element.setAttribute('x5-video-player-fullscreen',"true")
+                                element.setAttribute('webkit-playsinline',"true")
+                                element.setAttribute('playsinline',"true")
+                                element.setAttribute('x-webkit-airplay',"true")
+                                element.setAttribute('tabindex',"-1")
+                                element.setAttribute('x5-playsinline',"true");
+                                let parent = element.parentNode
+                                parent.style="position: relative;display: block;"
+
+                                let divDom  = document.createElement("div");
+                                divDom.classList.add("Play")
+                                divDom.addEventListener("click",(event)=>{
+                                    event.stopPropagation();
+                                    element.play();
+                                    divDom.classList.add("novidio")
+                                },false)
+                                divDom.style = `background: url('${element.src}?vframe/jpg/offset/3') center no-repeat; background-size: 100% 100%; position: absolute;top: 0px;left: 0px;height: 100%;width: 100%;`
+                                parent.appendChild(divDom);
+
+
+                            });
+                        }else{
+                            console.log(this.$refs.Myiframe[n].querySelector("iframe").src.split("//")[1].split("/")[0])
+                            document.domain = this.$refs.Myiframe[n].querySelector("iframe").src.split("//")[1].split("/")[0]
+                            let Iframedom = this.$refs.Myiframe[n].querySelector("iframe")
+                            Iframedom.onload=()=>{
+                                let Iframe  = Iframedom.contentWindow.document
+                                console.log(Iframe)
+                                let startX= 0
+                                let startY= 0
+                                let endX=0
+                                let endY=0
+                                let distanceX=0
+                                let distanceY=0;
+                                Iframe.addEventListener('touchstart',function (e) {
+                                    startX = e.targetTouches[0].pageX;
+                                    startY = e.targetTouches[0].pageY;
+                                })
+                                Iframe.addEventListener('touchemove',function (e) {
+                                    endX = e.targetTouches[0].pageX;
+                                    endY = e.targetTouches[0].pageY;
+                                    distanceX = endX - startX;
+                                    distanceY = endY - startY;
+                                    if(Math.abs(distanceX)>Math.abs(distanceY) && distanceX>($(window).width()/2)){
+                                        if(n !=0){
+                                            this.mySwiper.slideTo(n -1,800);
+                                        }
+                                        console.log('往右滑动');
+                                    }else if(Math.abs(distanceX)>Math.abs(distanceY) && distanceX<-($(window).width()/2)){
+                                        if(index != (sum-1)){
+                                            this.mySwiper.slideTo(index+1,800);
+                                        }
+                                        console.log('往左滑动');
+                                    }
+                                })
+                            }
+                            // Iframe.addEventListener("touchstart ",()=>{
+                            //     console.log(123)
+                            //     alert(1)
+
+                            // },)
+                            // console.log(this.$refs.contentHTML[n])
+                            // var bHeight = Iframe.contentWindow.document.body.scrollHeight;
+                            // var dHeight = Iframe.contentWindow.document.documentElement.scrollHeight;
+                            // var height = Math.max(bHeight, dHeight); // 取最大值
+                            // Iframe.height = height;
+                            // console.log(12,height)
+                        //    this.addIfirmClick()
+                        };
+
+                    },50)
+                });
+
+
+            },
+            makeSharedata(){
+
+            },
+            // 微信端的分享
+            wxduanShare() {
+                let self = this
+                let shearObj = {
+                    title:this.$route.query.journalName,
+                    desc:this.$route.query.disc,
+                    imgUrl:this.$route.query.imgurl,
+                }
+                let journalid = this.$route.query.journalid
+                this.ShearPost('openweixin/jsapi/getJsapiSignature?local_url=' + encodeURIComponent(location.href.split('#')[0]), {}).then(response=>{
+                    this.$wechat.config({
+                        debug: false, // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。
+                        appId: response.appid, // 必填，公众号的唯一标识
+                        timestamp: parseInt(response.timestamp), // 必填，生成签名的时间戳
+                        nonceStr: response.noncestr, // 必填，生成签名的随机串
+                        signature: response.signature, // 必填，签名，见附录1
+                        jsApiList: [
+                            'onMenuShareAppMessage',
+                            'onMenuShareTimeline'
+                        ] // 必填，需要使用的JS接口列表，所有JS接口列表见附录2
+                    });
+
+                    this.$wechat.ready(()=>{
+                    // 分享给朋友
+                    this.$wechat.onMenuShareAppMessage({
+                        title: shearObj.title, //标题
+                        desc: shearObj.desc, //描述
+                        link: window.location.href, //连接地址指打开分享时页面地址
+                        imgUrl:  shearObj.imgUrl, //图片
+                        trigger(res) {
+                        // 不要尝试在trigger中使用ajax异步请求修改本次分享的内容，因为客户端分享操作是一个同步操作，这时候使用ajax的回包会还没有返回
+                        },
+                        success(res) {
+                            this.shearNums(journalid)
+                        },
+                        cancel(res) {
+
+                        },
+                        fail(res) {
+                        self.msgalert("分享失败");
+                        }
+                    });
+                    // 分享到朋友圈
+
+                    this.$wechat.onMenuShareTimeline({
+                        title: shearObj.title, //标题
+                        desc: shearObj.desc, //描述
+                        link: window.location.href, //连接地址指打开分享时页面地址
+                        imgUrl:  shearObj.imgUrl, //图片
+                        trigger(res) {
+                        // 不要尝试在trigger中使用ajax异步请求修改本次分享的内容，因为客户端分享操作是一个同步操作，这时候使用ajax的回包会还没有返回
+                        },
+                        success(res) {
+                            this.shearNums(journalid)
+                        },
+                        cancel(res) {
+                        self.msgalert("已取消");
+
+                        },
+                        fail(res) {
+                        self.msgalert("分享失败");
+                        }
+                    });
+                    self.$wechat.error(function(res) {
+                    });
+
+                    })
+                })
+            },
+            msgalert(msg) {
+                this.$vux.toast.show({
+                    text: msg,
+                    type: "text"
+                });
+            },
+            // 点赞
+            getLikedata(Data){
+                this.get(`EjArticleLike?openid=${this.openId}&articleid=${Data.id}`).then(res=>{
+                    if(res.Code==200){
+                        this.get(`GetEjArticlelikelistWhere?cond=openid&arg=${this.openId}`).then(Response=>{
+                            if(Response.Code==200){
+                                sessionStorage.setItem("likelist",JSON.stringify(Response.Data));
+                                Data.isZan=1;
+                                Data.likes+=1;
+                            }
+                        })
+                    }
+                }).then(()=>{
+
+                })
+            },
+            // 分享统计
+            shearNums(id){
+                this.get(`Share?journalid=${id}`).then(res=>{
+                    console.log(res)
+                })
+            },
+            // 点击大页面出现隐藏菜单
+            ClickNumChouse(){
+                if(this.menusCNum%2==0){
+                    this.ClickNum++;
+                }
+            },
+            // 出现隐藏导航
+            menuListShow(){
+                this.menusCNum++;
+            },
+            // 页面定位
+            ToThePage(n){
+                this.mySwiper.slideTo(n, 0, false)
+            },
+            // 初始数据
+            requireData(){
+                let jId = this.$route.query.journalid
+                this.get(`GetEjArticlelistWhere?cond=journalid&arg=${jId}`).then(res=>{
+                    this.ArticleList = res.Data;
+                    this.ArticleList.forEach(item=>{
+                        item.isZan = 0;
+                    })
+                    //后加的，记得删除
+                    let obj = {};
+                    Object.assign(obj,res.Data[0])
+                    obj.likes=50;
+                    this.ArticleList.push(obj)
+
+
+                    this.ToThePage(this.activedIndex)
+                    this.EditIMG(this.activedIndex)
+
+                })
+            },
+            // 评论
+            fondComment(jId){
+                this.commentList = []
+                this.get(`GetEjArticlecommentWhere?cond=articleid&arg=${jId}`).then(res=>{
+                    console.log(res)
+                    if(res.Code==200){
+                        this.commentList = res.Data
+                    }
+                    // this.commentList = res.
+                })
+            },
+             // 获取杂志详情
+            JournDetial(id){
+                return this.get(`GetEjArticlelistFirst?cond=id&arg=${id}`).then(res=>{
+                    return res
+                })
+            },
+            // 评论
+            ToComment(){
+                sessionStorage.setItem("activedIndex",this.activedIndex)
+                this.$router.push({name:"comment",query:{
+                    articleid:this.ArticleList[this.activedIndex].id,
+
+                }})
+            }
+        },
+        computed:{
+            mySwiper(){
+                return this.$refs.mySwiper.swiper
+            }
+        },
+   }
+</script>
+
+<style scoped lang="less">
+.journal{
+    overflow: hidden !important;
+    position: relative;
+    background-color: #EFEFEF;
+    .Myswiper{
+        height: 100%;
+
+    }
+    .Myiframe_box{
+        height: 100%;
+        width: 100%;
+    }
+    .Myiframe{
+        width: 100%;
+    }
+    .commentList_box{
+        .comment_title{
+            height: 0.6rem;
+            line-height: 0.6rem;
+            font-size: 0.26rem;
+            padding: 0 0.3rem;
+            text-align: left;
+        }
+        li{
+            width: 100%;
+            padding: .2rem 0.3rem;
+            box-sizing: border-box;
+            .left{
+                width: .7rem;
+                height: .7rem;
+                float: left;
+                img{
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 50%;
+                }
+            }
+            .right{
+                margin-left: 1rem;
+                .name{
+                    text-align: left;
+                    font:400 0.3rem/0.32rem "Microsoft Yahei";
+                    color:#999;
+                }
+                .content{
+                    text-align: left;
+                    font:400 0.3rem/0.6rem "Microsoft Yahei";
+                    color:#000;
+                }
+            }
+        }
+
+    }
+    .navBar{
+        height: 40px;
+        width: 100%;
+        background-color: #000;
+        position: absolute;
+        bottom: -40px;
+        left: 0;
+        z-index: 3;
+        transition: bottom 0.4s;
+        &.actived{
+            bottom:0;
+        }
+        .btn{
+            float: left;
+            width: 90px;
+            height: 40px;
+
+            span{
+                width: 40px;
+                float: left;
+                height: 40px;
+                color:#fff;
+                text-align: left;
+                line-height: 40px;
+            }
+            .heart{
+                background: url("../../assets/img/images/heart.png") center 10% no-repeat;
+                background-size: 80%;
+            }
+            .heart2{
+                background: url("../../assets/img/images/heart1.png") center 10% no-repeat;
+                background-size: 80%;
+            }
+            .comment{
+                background: url("../../assets/img/images/comment.png") center 10% no-repeat;
+                background-size: 80%;
+            }
+            .shear{
+                background: url("../../assets/img/images/shear.png") center 10% no-repeat;
+                background-size: 80%;
+            }
+
+        }
+        .btn_menu{
+            float: right;
+            width: 40px;
+            height: 40px;
+            .menu{
+                float: right;
+                width: 40px;
+                height: 40px;
+                background: url("../../assets/img/images/menus.png") center 10% no-repeat;
+                background-size: 72%;
+            }
+        }
+    }
+    .menuList{
+        height: 240px;
+        width:100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        position: absolute;
+        bottom: -240px;
+        left: 0;
+        z-index: 2;
+        transition: bottom 0.4s;
+        &.menus{
+          bottom:0
+        }
+        .top_btn{
+            height: 30px;
+            background: url("../../assets/img/images/downs.png") center no-repeat;
+            background-size: contain;
+        }
+        .lists{
+            height: 165px;
+            overflow-x: auto;
+        }
+
+        ul{
+            white-space: nowrap;
+            text-align: left;
+            li{
+                display: inline-block;
+                vertical-align: top;
+                height: 160px;
+                margin-left: 5px;
+                width:120px;
+                background-color: #000;
+                margin-right: 5px;
+                line-height: 160px;
+                img{
+                    width: 100%;
+                    margin: auto;
+                }
+            }
+        }
+    }
+
+}
+
+</style>
+<style lang="less">
+.journal{
+    .Myswiper-slide{
+        height: 100%;
+        overflow-y: auto;
+        .firstPage{
+            width: 100%;
+            height: 100%;
+        }
+    }
+    .contentsSty{
+        .novidio{
+            display: none;
+        }
+        .Play{
+            position: relative;
+            &::before{
+                content:"";
+                position: absolute;
+                width: .8rem;
+                height: .8rem;
+                top:50% ;
+                left: 50%;
+                transform:translate(-50%,-50%);
+                background: url("../../assets/img/images/play.png") center no-repeat;
+                background-size: 36%;
+                background-color: rgba(255,255,255,.7);
+                border-radius:50%;
+            }
+        }
+        padding:.3rem;
+        *{
+            font-size:0.3rem;
+            text-align:left;
+        }
+        table{
+
+            border-spacing: 0;
+            th,tr{
+
+            }
+            td{
+                border:1px solid #ccc;
+            }
+            ol,ol>li{
+                margin:5px 0;
+                list-style:decimal;
+            }
+            ul,ol{
+                padding-left:20px;
+            }
+            ul,ul>li{
+                margin:5px 0;
+                list-style:disc;
+            }
+        }
+        img{
+            width: 100%;
+            margin:10px 0;
+        }
+        video{
+            margin:10px 0;
+            width: 100%;
+        }
+    }
+
+}
+</style>

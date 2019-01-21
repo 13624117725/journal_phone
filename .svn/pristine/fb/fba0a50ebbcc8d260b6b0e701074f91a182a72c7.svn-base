@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=0">
+
+    <title>国安城市</title>
+    <script type="text/javascript" src="https://api.map.baidu.com/api?v=2.0&ak=Gphfc3FkrQXVOXSwYnaRcdxR"></script>
+    <!-- <script src='http://weibo.gatz.citic/res/js/qingjs.js'></script> -->
+    <script src="//wechatfe.github.io/vconsole/lib/vconsole.min.js?v=3.0.0.0"></script>
+    <script>
+        var vConsole = new VConsole();
+    </script>
+</head>
+
+<body>
+    <div id="app-box"></div>
+    <!-- built files will be auto injected -->
+</body>
+
+</html>

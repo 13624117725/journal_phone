@@ -1,0 +1,38 @@
+@charset "UTF-8";
+
+$baseColor: #e24e59;
+$titleColor: #fff;
+$baseBorder: 1px solid #ccc;
+
+$baseFontFamily: "微软雅黑";
+
+//文字大小
+$littleFontSize: 0.36rem;      //少部分需要特别重点强调的文字等
+$titleFontSize: 0.32rem;        //标题或重要正文文字
+$mostFontSize: 0.28rem;         //大部分正正文文字
+$reminderFontSize: 0.24rem;     //其他提示性或辅助搜名文字
+$fewFontSize: 0.21rem;          //极少部分的辅助或不重要的提示文字
+
+//颜色
+$titleColor: #ffffff;        //标题及按钮上的文字
+$mostColor: #333333;         //大部分正正文文字
+$unselectedColor: #666666;   //未选中按钮文字
+$friendlyColor: #ff9b2f;     //友好提示文字
+$partColor: #e24e59;         //部分主色文字
+$indicativeColor: #e42929;   //负向或提示性文字
+
+//背景颜色规范
+$greyColor: #e8e8e8;         //灰背景
+$lineColor: #d7d7d7;         //分割线
+$moreColor: #f799a0;         //"更多"按钮
+$mineColor: #e24e59;         //主色
+
+//切换按钮三原色
+$switchOne: #edcf76;
+$switchTwo: #e2614c;
+$switchThree: #f6b04c;
+
+//标签按钮三原色
+$labelOne: #e99064;
+$labelTwo: #7dadd2;
+$labelThree: #76b48f;

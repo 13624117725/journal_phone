@@ -1,0 +1,2065 @@
+<template>
+    <div class="journal" ref="Myjournal" @click="ClickNumChouse">
+        <div v-wechat-title="journalData.title"></div>
+        <div ref="journalBox" style="height:100%">
+            <swiper :options="swiperOption" ref="mySwiper" class="Myswiper">
+                <swiper-slide class="Myswiper-slide firstslide" v-for="(item,index) in ArticleList" :key="item.id">
+                    <div class="first_page" v-if="index==0">
+                        <div ref="contentHTML" v-show="false"></div>
+                        <div class="f_img_box">
+                            <img :src="`${item.imgurl}?imageView2/2/w/470`" />
+                        </div>
+                    </div>
+                    <div class="pages_box" ref="pagesBox" v-if="index>0">
+                        <div class="headerImg" v-if="item.showheadimg===1">
+                            <img :src="`${item.imgurl}`" />
+                        </div>
+                        <div class="articalTop">
+                            <div class="articalTopInner">
+                                <div class="titles_box">
+                                    <div class="titles" :style="item.titlestyle">{{item.articlename}}</div>
+                                    <div class="titlesInfo" :style="item.topicstyle">{{item.topic}}</div>
+                                </div>
+                                <div class="uline"></div>
+                            </div>
+                        </div>
+                        <div class="contentsSty" v-show="item.articletype==0" ref="contentHTML" v-html="item.content"></div>
+                        <div class="Myiframe_box" v-show="item.articletype==1" ref="Myiframe" style="position:relative;">
+                            <iframe style="z-index:2" class="Myiframe" frameborder="0" v-if="item.articletype==1" :src="item.content" :height="frameHeight" width="100%"></iframe>
+                        </div>
+                        <div class="bottom_box" v-show="0!==index">
+                            <divider>文章到头了
+                                <span v-show="index<ArticleList.length-1">，右滑查看下一篇</span>
+                                <span>，下滑查看评论</span>
+                            </divider>
+                        </div>
+                        <div class="commentList_point" style="height:0"></div>
+                        <div class="commentList_box" v-show="!ListLoad&&0!==index">
+                            <div class="comment_title">
+                                <span class="fl">精选留言</span>
+                                <span class="fr" @click.stop="ToComment">写留言</span>
+                            </div>
+                            <ul class="commentList_ul">
+                                <li v-for="(its,index) in commentList" :key="index">
+                                    <div class="left"  @click.stop="reComment1(its)">
+                                        <img :src="its.headimgurl+ImgsmallSize" alt="">
+                                    </div>
+                                    <div class="right">
+                                        <div class="name"  @click.stop="reComment1(its)">
+                                            {{its.nickname}}
+                                        </div>
+                                        <div class="content" :class="{imgBox:its.comment.indexOf('gif')!=-1}">
+                                            <p v-if="its.comment.indexOf('gif')==-1" >
+                                                <span  @click.stop="reComment1(its)" v-for="ele in its.commentArr" :key="ele.key">
+
+                                                    <span v-if="ele.type=='1'">{{ele.val}}</span>
+                                                    <emotion v-else>{{ele.val}}</emotion>
+
+
+                                                </span>
+                                            </p>
+                                            <img class="itsImg"  v-else :src="`https://img.guoanfamily.com/journal/${its.comment}?imageView2/2/w/100`"  @click.stop="reComment1(its)"/>
+                                            <div class="Recomment">
+                                                <ul>
+                                                    <li class="clearfix Recomment_li" v-for="(it,i) in its.recommentArr" :key="i" >
+                                                        <div class="Nickname" @click.stop="reComment(it,its.recommentArr)">
+                                                            {{it.nickname+"&nbsp;"}}
+                                                        </div>
+                                                        <div class="huifu">
+                                                            回复：
+                                                        </div>
+                                                        <div class="RecommentInfo" v-if="it.comment.indexOf('gif')==-1">
+                                                            <span @click.stop="reComment(it,its.recommentArr)" v-for="eles in it.commentArr" :key="eles.key">
+
+                                                                <span class="infos" v-if="eles.type=='1'">{{eles.val}}</span>
+                                                                <emotion v-else>{{eles.val}}</emotion>
+
+                                                            </span>
+                                                        </div>
+                                                        <div class="img_box" v-else>
+                                                            <img :src="`https://img.guoanfamily.com/journal/${it.comment}?imageView2/2/w/100`"/>
+                                                        </div>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="commentListLoad" v-show="ListLoad&&0!==index"></div>
+                    </div>
+                </swiper-slide>
+            </swiper>
+        </div>
+        <!-- 底部下菜单 -->
+        <div class="navBar" :class="{actived:ClickNum%2==1}" v-show="!commonsShow">
+            <div class="btn" v-if="ArticleList[activedIndex]&& ArticleList[activedIndex].isZan==1">
+                <span class="heart2"></span>
+                <span v-if="ArticleList[activedIndex]">{{ArticleList[activedIndex].likes}}</span>
+            </div>
+            <div class="btn" v-else @click.stop="getLikedata(ArticleList[activedIndex])">
+                <span class="heart"></span>
+                <span v-if="ArticleList[activedIndex]">{{ArticleList[activedIndex].likes}}</span>
+            </div>
+            <div class="btn" v-show="activedIndex!=0" @click="ToComment">
+                <span class="comment"></span>
+                <span>{{commentList.length}}</span>
+            </div>
+            <div class="btn" @click="ToShear">
+                <span class="shear"></span>
+                <span>{{sharecounts}}</span>
+            </div>
+            <div class="btn" @click="ToHoom">
+                <span class="hoom"></span>
+            </div>
+            <div class="Barragebtn " @click.stop="ChangeBarrage" v-if="commentList.length>0&&showbarrage==1&&BarrageReady">
+                <span class="Barrage" :class="{BarrageClose:!BarrageContrData}"></span>
+            </div>
+
+            <div class="btn_menu" @click.stop="menuListShow">
+                <span class="menu"></span>
+            </div>
+
+        </div>
+        <div class="menuList" :class="{menus:menusCNum%2==1}" @click.stop="menuListShow" v-show="!commonsShow">
+            <div class="top_btn"></div>
+            <div class="lists" ref="ArticleListBox">
+                <ul>
+                    <li v-for="(item,index) in ArticleList" :key="item.imgurl" @click="ToThePage(index)" class="pageCard" :class="{NotClick:index!=activedIndex}">
+                        <img :src="`${item.imgurl}?imageView2/1/w/120/h/160`" alt="">
+                        <div class="masks" v-show="index!=activedIndex"></div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div v-if="imgList.length>0&&previewerShow">
+            <previewer :list="imgList" ref="previewer" @on-close="previewerClose"></previewer>
+        </div>
+        <!-- 输入框 -->
+        <div class="commons" v-show="commonsBoxShow" :class="{showcommons:commonsShow}" @click.stop="">
+            <div ref="textareaBox" class="clearfix">
+                <div class="em_btn" v-show="!emmortionShow" @click="getgift"></div>
+                <div class="key_btn" v-show="emmortionShow" @click="getgift"></div>
+                <x-button class="my_button bg_green"  mini v-if="!RecommonsShow" @click.native="commentSave">提 交</x-button>
+                <x-button class="my_button bg_green"  mini v-if="RecommonsShow" @click.native="RecommentSave">回 复</x-button>
+            </div>
+            <div class="emmortion" v-if="emmortionShow">
+                <swiper :options="swiperOption2" ref="mySwiper2" class="Myswiper2">
+                    <swiper-slide class="Myswiper2_slide emotionBox" v-for="ele in emmArr1" :key="ele.key">
+                        <emotion class="Myemotion" @click.native="emotionClick(its)" v-for="its in ele.val" :key="its">{{its}}</emotion>
+                        <div class="Myemotion delect" @click="delected"></div>
+                    </swiper-slide>
+                    <swiper-slide class="Myswiper2_slide" v-for="item in emmArr" :key="item.key">
+                        <div class="img_box" v-for="its in item.val" :key="its" @click="toUpGif(its)">
+                            <img  :src="`https://img.guoanfamily.com/journal/${its}.gif?imageView2/2/w/160`" />
+                        </div>
+                    </swiper-slide>
+                    <div class="swiper-pagination" slot="pagination"></div>
+                </swiper>
+            </div>
+        </div>
+
+        <div class="Fullmask" @click.stop="ShearShow=false" v-show="ShearShow">
+            <div class="shearmsg">
+                点击右上角进行分享
+            </div>
+        </div>
+        <!-- 弹幕 -->
+        <div v-for="(item,i) in danmuArr" :key="i"  :style="`top:${36*(i+1)}px; animation: danmu ${Barragetime[i]}s linear 0s infinite`" class="absitem" v-if="showbarrage==1&&BarrageReady&&BarrageContrData">
+            <p class="absitemp">
+                <img :src="`${item.headimgurl}?imageView2/1/w/30/h/30`" />
+                <span v-for="ele in item.commentArr" :key="ele.key">
+                    <span v-if="ele.type=='1'">{{ele.val}}</span>
+                    <emotion v-else>{{ele.val}}</emotion>
+                </span>
+
+                <span  v-for="its in item.recommentArr" :key="its.id" v-if="its&& its.comment.indexOf('gif')==-1">
+                    <img :src="`${its.headimgurl}?imageView2/1/w/30/h/30`" />
+                    <span v-for="ele in its.commentArr" :key="ele.key">
+                        <span v-if="ele.type=='1'">{{ele.val}}</span>
+                        <emotion v-else>{{ele.val}}</emotion>
+                    </span>
+                </span>
+            </p>
+        </div>
+        <div class="Fullmask" @click.stop="commonsShow = false;RecommonsShow = false;commonsBoxShow = false; emmortionShow=false;$refs.textareaBox.style.bottom = '0';" v-show="commonsShow"></div>
+    </div>
+</template>
+<script>
+import { WechatEmotion as Emotion,TransferDom, XTextarea, XButton, Divider } from "vux";
+import Previewer from "../../components/previewer";
+import { setTimeout, setImmediate } from "timers";
+export default {
+    data() {
+        let self = this;
+        return {
+            ipt:"",
+            commonsBoxShow:false,
+            emmArr1:[
+                {key:1, val:['微笑', '撇嘴', '色', '发呆', '得意', '流泪', '害羞', '闭嘴', '睡', '大哭',
+                '尴尬', '发怒', '调皮','呲牙', '惊讶', '难过', '酷', '冷汗', '抓狂', '吐',
+               '偷笑', '可爱', '白眼', '傲慢', '饥饿', '困', '惊恐', '流汗', '憨笑']},
+                {key:2, val:['大兵', '奋斗', '咒骂', '疑问', '嘘', '晕', '折磨', '衰', '骷髅', '敲打',
+                    '再见', '擦汗', '抠鼻', '鼓掌', '糗大了', '坏笑', '左哼哼', '右哼哼', '哈欠',
+                    '鄙视','委屈', '快哭了', '阴险', '亲亲', '吓', '可怜', '菜刀', '西瓜', '啤酒']},
+                {key:3, val:[ '篮球', '乒乓', '咖啡', '饭', '猪头', '玫瑰', '凋谢', '示爱', '爱心', '心碎',
+                '蛋糕', '闪电', '炸弹', '刀', '足球', '瓢虫', '便便', '月亮', '太阳', '礼物',
+                '拥抱', '强', '弱', '握手', '胜利', '抱拳', '勾引', '拳头', '差劲'
+                ]},
+                 {key:4, val:[ '爱你', 'NO', 'OK', '爱情', '飞吻', '跳跳', '发抖', '怄火', '转圈',
+                '磕头', '回头', '跳绳', '挥手', '激动', '街舞', '献吻', '左太极', '右太极']}
+            ],
+            emmArr:[
+                {key:111, val:['em001','em002','em003','em004','em005','em006','em007','em008']},
+                {key:112, val:['em009','em010','em011','em012','em013','em014','em015','em016']},
+                {key:113, val:['em017','em018','em019','em020','em021','em022','em023','em024']},
+                {key:114, val: ['em025','em027','em028','em029','em030','em031']},
+
+
+
+           ],
+           emmortionShow:false,
+            shearObj:{},
+            swiperOption: {
+                resistanceRatio: 0,
+                on: {
+                    // 轮播滑动的函数
+                    slideChangeTransitionStart() {
+                        self.activedIndex = this.activeIndex
+                        self.EditIMG(this.activeIndex);
+                    }
+                }
+            },
+            showbarrage: 0, //是否显示弹幕，0不显示
+            BarrageReady: false, //是否显示弹幕,用于加载完成后判断
+            previewerShow: false,
+            Barragetime: [], //弹幕时间数组
+            BarrageContrul: [],
+            BarrageContrData: true,
+            swiperOption2:{
+                resistanceRatio: 0,
+                pagination: {
+                    el: ".swiper-pagination"
+                }
+            },
+            swiperItem: "",
+            Vtime: "",
+            AUDIO: "", //当前audio标签
+            AUDIOBOX: "", //当前audio的盒子
+            AUDIONums: 0, //语音的点击次数
+            journalData: {},
+            comment: "", //评论内容
+            commonsShow: false, //评论展示
+            RecommonsShow: false, //回复展示
+            RecommonData: {},
+            ShearShow: false,
+            ordernum: 0, //序号
+            imgList: [], //当前页图片个数
+            activedIndex: 0, //当前页索引值
+            commentList: [],
+            danmuArr:[],
+            ArticleList: [],
+            pageDomeData: {},
+            ClickNum: 1, //网页的点击次数
+            menusCNum: 0, //菜单点击次数
+            sharecounts: 0,
+            openId: "",
+            LiskList: [], //收藏列表
+            frameHeight: 0,
+            isReady: false,
+            ListLoad: true,
+            PointHeight: 9999999, //用于检测评论区的位置
+            commentListPoint: "", //标记点的dom
+            BqueryComment: false
+        };
+    },
+    created() {
+        this.frameHeight = window.innerHeight * 0.95;
+
+    },
+    mounted() {
+
+        this.openId = localStorage.getItem("sub_openid");
+        let activedIndex = sessionStorage.getItem("activedIndex");
+
+        if (activedIndex) {
+            this.activedIndex = Number(activedIndex);
+            sessionStorage.removeItem("activedIndex");
+        }
+        let likelist = sessionStorage.getItem("likelist");
+        if (likelist) {
+            this.LiskList = JSON.parse(likelist);
+        }
+         this.getJournalData().then(() => {
+            if (this.journalData.id) {
+                // 制作分享
+                this.wxduanShare();
+            }
+        }).then(()=>{
+            this.requireData(); //初始化页面
+        });
+
+    },
+    components: {
+        Previewer,
+        XTextarea,
+        XButton,
+        Divider,
+        Emotion
+
+    },
+    directives: {
+        TransferDom
+    },
+    methods: {
+        // 光标到最后
+        moveEnd(obj) {
+
+            var len = obj.value.length;
+            if (document.selection) {
+                var sel = obj.createTextRange();
+                sel.moveStart('character', len);
+                sel.collapse();
+                sel.select();
+            } else if (typeof obj.selectionStart == 'number'&& typeof obj.selectionEnd == 'number') {
+                obj.selectionStart = obj.selectionEnd = len;
+            }
+        },
+        // 放大组件关闭后视频展示
+        previewerClose() {
+            let VEDIODOM = this.$refs.contentHTML[
+                this.activedIndex
+            ].querySelectorAll("video");
+            VEDIODOM.forEach(ele => {
+                ele.classList.remove("novidio");
+            });
+            this.previewerShow = false;
+            setTimeout(() => {
+                this.previewerShow = true;
+            }, 400);
+        },
+        // 发布动图
+        getgift(){
+            this.emmortionShow = !this.emmortionShow;
+            if(this.emmortionShow){
+
+
+                this.$refs.textareaBox.querySelector("textarea").blur()
+                this.$refs.textareaBox.querySelector("textarea").style.bottom = "0"
+                let timer = setTimeout(()=>{
+                    document.body.scrollTop = document.body.scrollHeight;
+                    window.clearTimeout(timer)
+
+                },10)
+                // this.$refs.textareaBox.querySelector("textarea").disabled=true
+            }else{
+                // this.$refs.textareaBox.querySelector("textarea").disabled=false
+                this.$refs.textareaBox.querySelector("textarea").focus();
+                this. moveEnd(this.$refs.textareaBox.querySelector("textarea"))
+                let timer = setTimeout(()=>{
+                    document.body.scrollTop = document.body.scrollHeight;
+                    window.clearTimeout(timer)
+
+                },10)
+                this.$refs.textareaBox.querySelector("textarea").style.bottom = "0"
+
+
+            }
+
+
+
+        },
+        emotionClick(its){
+            this.$refs.textareaBox.querySelector("textarea").value+=`[${its}]`;
+        },
+        // 删除
+        delected(){
+            let val = this.$refs.textareaBox.querySelector("textarea").value
+            val = val.substring(0,val.length-1)
+            this.$refs.textareaBox.querySelector("textarea").value = val
+        },
+        // 上传动图
+        toUpGif(its){
+            let articleid = this.ArticleList[this.activedIndex].id;
+            let nickname = localStorage.getItem("sub_nickname");
+            let headimgurl = localStorage.getItem("sub_headimgurl");
+            let openid = localStorage.getItem("sub_openid");
+            let comment = `${its}.gif`
+            if(!this.RecommonsShow){
+                let Data = {
+                    articleid,
+                    nickname,
+                    headimgurl,
+                    comment,
+                    openid,
+                    ordernum: this.commentList.length,
+                    isshow:1
+                };
+                if (Data.comment) {
+                    this.BqueryComment = false;
+                    this.post("EjArticlecommentSave", Data).then(res => {
+                        if (res.Code == 200) {
+                            this.commonsShow = false;
+                            this.RecommonsShow = false;
+                            this.emmortionShow = false;
+                            this.commonsBoxShow = false;
+                            this.BqueryComment = true;
+                        }
+                    });
+                }
+            }else{
+                let uPdata = {
+                    comment,
+                    commentid: this.RecommonData.commentid,
+                    headimgurl,
+                    nickname,
+                    openid,
+                    ordernum: this.ordernum,
+                    isshow:1
+                };
+                if (uPdata.comment) {
+                    this.BqueryComment = false;
+                    this.post(`EjCommentreplySave`, uPdata).then(res => {
+                        this.commonsShow = false;
+                        this.RecommonsShow = false;
+                        this.$refs.textareaBox.style.bottom = '0';
+                        this.emmortionShow = false;
+                        this.commonsBoxShow = false;
+                        this.BqueryComment = true;
+                    });
+                } else {
+                    this.$vux.toast.show({
+                        text: "请完成您的回复内容",
+                        type: "text",
+                        width: "11em"
+                    });
+                }
+            }
+
+        },
+        getJournalData() {
+            let jId = this.$route.query.journalid;
+            return this.get(`GetEjJournallistWhere?cond=id&arg=${jId}`).then(
+                res => {
+                    if (res.Code == 200) {
+                        this.journalData = res.Data[0];
+                        this.sharecounts = this.journalData.sharecounts;
+                    }
+                }
+            );
+        },
+        makeShear(){
+             // 分享给朋友
+            let self  = this
+            self.shearObj.desc = self.journalData.title
+            this.$wechat.onMenuShareAppMessage({
+                title: self.shearObj.title, //标题
+                desc: self.shearObj.desc, //描述
+                link:  `${window.location.href.split('/#/')[0]}/?journalid=${self.journalData.id}&sIndex=${self.activedIndex}`, //连接地址指打开分享时页面地址
+                imgUrl: self.shearObj.imgUrl, //图片
+                trigger(res) {
+                    // 不要尝试在trigger中使用ajax异步请求修改本次分享的内容，因为客户端分享操作是一个同步操作，这时候使用ajax的回包会还没有返回
+                },
+                success(res) {
+                    self.shearNums(journalid);
+                },
+                cancel(res) {},
+                fail(res) {
+                    self.msgalert("分享失败");
+                }
+            });
+            // 分享到朋友圈
+
+            this.$wechat.onMenuShareTimeline({
+                title: self.shearObj.title, //标题
+                desc: self.shearObj.desc, //描述
+                link:  `${window.location.href.split('/#/')[0]}/?journalid=${self.journalData.id}&sIndex=${self.activedIndex}`, //连接地址指打开分享时页面地址
+                imgUrl: self.shearObj.imgUrl, //图片
+                trigger(res) {
+                    // 不要尝试在trigger中使用ajax异步请求修改本次分享的内容，因为客户端分享操作是一个同步操作，这时候使用ajax的回包会还没有返回
+                },
+                success(res) {
+                    self.shearNums(journalid);
+                },
+                cancel(res) {
+                    self.msgalert("已取消");
+                },
+                fail(res) {
+                    self.msgalert("分享失败");
+                }
+            });
+
+        },
+        // 内链点击
+
+        // 处理swiper页面
+        EditIMG(n) {
+            //底部导航对应高亮
+            this.$refs.ArticleListBox.scrollLeft = 130 * n - 130;
+            this.isReady = false;
+            this.BarrageReady = false;
+            this.showbarrage = this.ArticleList[n]['showbarrage']; //是否显示弹幕
+            // 是否开始加载评论
+            this.BqueryComment = false;
+            this.activedIndex = n;
+            this.ClickNum = 1;
+            this.ListLoad = true;
+            this.PointHeight = 9999999;
+            this.previewerShow = false;
+                // this.ArticleList[n]['id']
+            // this.JournDetial('87').then(res => {
+            this.JournDetial(this.ArticleList[n]['id']).then(res => {
+                this.previewerShow = true;
+                if (res.Code == 200) {
+                    this.pageDomeData = res.Data;
+                    this.shearObj = {
+                        title: this.pageDomeData.articlename,
+                        desc:  this.journalData.title,
+                        imgUrl: this.pageDomeData.imgurl
+                    };
+                    this.makeShear()
+                }
+                this.LiskList.forEach(its => {
+                    if (its.articleid == this.pageDomeData.id) {
+                        this.pageDomeData.isZan = 1;
+                    }
+                });
+                this.ArticleList[n] = this.pageDomeData;
+
+
+                if (this.pageDomeData.articletype == 1) {
+                    // 外链
+                    if (this.showbarrage == 0) {
+                        let self = this;
+                        this.swiperItem = this.$refs.journalBox.querySelectorAll(
+                            ".Myswiper-slide"
+                        )[n];
+                        this.swiperItem.removeEventListener(
+                            "scroll",
+                            self.scrollfunction,
+                            false
+                        );
+                        this.swiperItem.addEventListener(
+                            "scroll",
+                            self.scrollfunction,
+                            false
+                        );
+                        this.commentListPoint = this.swiperItem.querySelector(
+                            ".commentList_point"
+                        );
+                        this.PointHeight = this.commentListPoint.offsetTop;
+                    } else {
+                        this.swiperItem = this.$refs.journalBox.querySelectorAll(
+                            ".Myswiper-slide"
+                        )[n];
+                        this.swiperItem.removeEventListener(
+                            "scroll",
+                            self.scrollfunction,
+                            false
+                        );
+                        this.BqueryComment = true;
+                    }
+                    return false;
+                }
+                if (n == 0) {
+                    this.commentList = [];
+                } else {
+                    this.commentList = [];
+                    let timer1 = setTimeout(() => {
+                        this.imgList = [];
+                        let IMGDOM = this.$refs.contentHTML[n].querySelectorAll(
+                            "img"
+                        );
+                        console.log(n)
+
+                        // 内链
+                        let innerChainA = this.$refs.contentHTML[
+                            n
+                        ].querySelectorAll(".innerChainA");
+
+                        // console.log(123,innerChainA)
+                        innerChainA.forEach(element => {
+                            element.removeEventListener("click",(e)=>{
+                                e.stopPropagation();
+                                let n = Number(element.getAttribute("sindex"))
+                                this.mySwiper.slideTo(n, 0, false);
+                            }, false)
+                            element.addEventListener("click",(e)=>{
+                                e.stopPropagation();
+                                let n = Number(element.getAttribute("sindex"))
+                                this.mySwiper.slideTo(n, 0, false);
+                            },false)
+                        });
+                        let VEDIODOM = this.$refs.contentHTML[
+                            n
+                        ].querySelectorAll("video");
+                        this.AUDIOBOX = this.$refs.contentHTML[
+                            n
+                        ].querySelectorAll(".audio_box")[0];
+                        this.AUDIONums = 0;
+                        if (this.AUDIOBOX) {
+                            let self = this;
+                            this.AUDIO = this.AUDIOBOX.querySelector("audio");
+                            this.AUDIO.addEventListener(
+                                "ended",
+                                function() {
+                                    self.AUDIONums = 0;
+                                    self.AUDIOBOX.querySelector(
+                                        ".left"
+                                    ).classList.remove("active");
+                                },
+                                false
+                            );
+                            this.AUDIOBOX.querySelector(
+                                ".left"
+                            ).style.background =
+                                "";
+                            this.AUDIOBOX.querySelector(
+                                ".left"
+                            ).removeEventListener("click", this.Toplay, false);
+                            this.AUDIOBOX.querySelector(
+                                ".left"
+                            ).addEventListener("click", this.Toplay, false);
+                            this.AUDIO.load();
+
+                        }
+
+                        if (this.pageDomeData.articletype == 0) {
+                            IMGDOM.forEach((element, index) => {
+                                if(element.parentNode.classList.contains("emotion")){
+                                    return false
+                                }
+                                let dom = element.parentNode;
+                                console.log("tag",dom.tagName)
+
+
+
+                                // console.log(112,element.parentNode.tagName)
+                                if(dom.tagName=='A'){
+                                    dom.style="width:100%;display:inline-block"
+                                }
+                                if(dom.tagName=='SPAN'){
+                                    if(dom.parentNode.tagName=="P"){
+                                        dom.parentNode.classList.add("padd1")
+
+                                    }else{
+                                        dom.parentNode.parentNode.classList.add("padd1")
+                                    }
+
+                                    // dom.classList.add("");
+                                }
+                                if(dom.tagName=='P'){
+                                    dom.classList.add("padd0");
+                                }
+                                if( element.src.indexOf("imageView2")==-1){
+                                    element.src = element.src + "?imageView2/2/w/470";
+                                }
+                                element.onload = () => {
+                                    let obj = {
+                                        src: element.src,
+                                        type: 0
+                                    };
+                                    if (
+                                        element.offsetHeight /
+                                            element.offsetWidth <
+                                        1.8&&element.parentNode.tagName!='A'
+                                    ) {
+                                        this.imgList.push(obj);
+                                        element.addEventListener(
+                                            "click",
+                                            event => {
+                                                event.stopPropagation();
+                                                VEDIODOM.forEach(item => {
+                                                    item.classList.add(
+                                                        "novidio"
+                                                    );
+                                                });
+
+
+                                                let imgInde = 999999;
+                                                this.imgList.forEach(
+                                                    (its, i) => {
+                                                        if (
+                                                            its.src ==
+                                                            element.src
+                                                        ) {
+                                                            imgInde = i;
+                                                        }
+                                                    }
+                                                );
+
+                                                this.$refs.previewer.show(
+                                                    imgInde
+                                                );
+                                            },
+                                            false
+                                        );
+                                    }
+                                };
+                            });
+                            VEDIODOM.forEach((element, index) => {
+                                let Vscr = element.src;
+                                let dom = element.parentNode
+                                if(dom.tagName=="P"){
+                                    dom.classList.add("padd2")
+                                }else if(dom.tagName=="SPAN"){
+                                    dom.parentNode.classList.add("padd2")
+                                }
+
+                                element.style =
+                                    "width:100%;height:100%;object-fit: fill;vertical-align: top;";
+                                element.setAttribute(
+                                    "x5-video-player-fullscreen",
+                                    "true"
+                                );
+                                element.setAttribute(
+                                    "webkit-playsinline",
+                                    "true"
+                                );
+                                element.setAttribute("playsinline", "true");
+                                element.setAttribute(
+                                    "x-webkit-airplay",
+                                    "true"
+                                );
+                                element.setAttribute("tabindex", "-1");
+                                element.setAttribute("x5-playsinline", "true");
+                                let parent = element.parentNode;
+                                parent.style =
+                                    "position: relative;display: block;";
+                                parent.classList.add("padd0");
+                                element.classList.add("Noopacity");
+                                let divDom = document.createElement("div");
+                                divDom.classList.add("Play");
+                                // 点击播放
+                                divDom.addEventListener(
+                                    "click",
+                                    event => {
+                                        event.stopPropagation();
+                                        element.classList.remove("Noopacity");
+                                        element.play();
+                                        divDom.classList.add("novidio");
+                                    },
+                                    false
+                                );
+                                // 视频播放结束
+                                element.addEventListener("ended", function() {
+                                    element.classList.add("Noopacity");
+                                    divDom.classList.remove("novidio");
+                                });
+                                divDom.style = `background: url('${
+                                    Vscr
+                                }?vframe/jpg/offset/3') center no-repeat; background-size: 100% 100%; position: absolute;top: 0;left: 0.2rem;right:0.2rem;bottom:0;`;
+                                parent.appendChild(divDom);
+                            });
+                        }
+                        // 下拉事件
+                        // 是否开始加载评论
+                        if (this.showbarrage == 0) {
+                            let self = this;
+                            this.swiperItem = this.$refs.journalBox.querySelectorAll(
+                                ".Myswiper-slide"
+                            )[n];
+                            this.swiperItem.removeEventListener(
+                                "scroll",
+                                self.scrollfunction,
+                                false
+                            );
+                            this.swiperItem.addEventListener(
+                                "scroll",
+                                self.scrollfunction,
+                                false
+                            );
+                            this.commentListPoint = this.swiperItem.querySelector(
+                                ".commentList_point"
+                            );
+                            this.BqueryComment = true;
+                            this.PointHeight = this.commentListPoint.offsetTop;
+                        } else {
+                            this.swiperItem = this.$refs.journalBox.querySelectorAll(
+                                ".Myswiper-slide"
+                            )[n];
+                            this.swiperItem.removeEventListener(
+                                "scroll",
+                                self.scrollfunction,
+                                false
+                            );
+                            this.BqueryComment = true;
+                        }
+                        window.clearTimeout(timer1);
+                    }, 800);
+                }
+            });
+        },
+        Toplay(e) {
+            // 语音播放
+            e.stopPropagation();
+            this.AUDIONums++;
+            if (this.AUDIONums % 2 == 1) {
+                this.AUDIO.play();
+                this.AUDIOBOX.querySelector(".left").classList.add("active");
+            } else {
+                this.AUDIOBOX.querySelector(".left").classList.remove("active");
+                this.AUDIO.pause();
+            }
+        },
+        // 输入框获得焦点时，元素移动到可视区域
+        inputOnFocus(e){
+            setTimeout(function(){
+                    e.target.scrollIntoView(true);
+        // true:元素的顶端将和其所在滚动区的可视区域的顶端对齐; false:底端对齐。
+            },200);
+        // 延时 == 键盘弹起需要时间
+        },
+
+
+        scrollfunction() {
+            this.PointHeight =
+                this.commentListPoint.offsetTop - this.swiperItem.scrollTop;
+            this.ClickNum = 0;
+        },
+        ToMoved(n) {
+            if (n == 1 && this.activedIndex >= this.ArticleList.length) {
+                return false;
+            }
+            if (n == -1 && this.activedIndex <= 0) {
+                return false;
+            }
+            this.mySwiper.slideTo(this.activedIndex + n, 800, false);
+            this.EditIMG(this.activedIndex + n);
+        },
+        // 微信端的分享
+        wxduanShare() {
+            let self = this;
+            let journalid = this.$route.query.journalid;
+            this.ShearPost(
+                "openweixin/jsapi/getJsapiSignature?local_url=" +
+                    encodeURIComponent(location.href.split("#")[0]),
+                {}
+            ).then(response => {
+                this.$wechat.config({
+                    debug: false, // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。
+                    appId: response.appid, // 必填，公众号的唯一标识
+                    timestamp: parseInt(response.timestamp), // 必填，生成签名的时间戳
+                    nonceStr: response.noncestr, // 必填，生成签名的随机串
+                    signature: response.signature, // 必填，签名，见附录1
+                    jsApiList: ["onMenuShareAppMessage", "onMenuShareTimeline"] // 必填，需要使用的JS接口列表，所有JS接口列表见附录2
+                });
+                this.$wechat.ready(() => {
+                    // 分享给朋友
+                    self.shearObj.desc = self.journalData.title
+                    self.$wechat.onMenuShareAppMessage({
+                        title: self.shearObj.title, //标题
+                        desc: self.shearObj.desc, //描述
+                        link:  `${window.location.href.split('/#/')[0]}/?journalid=${self.journalData.id}&sIndex=${self.activedIndex}`, //连接地址指打开分享时页面地址
+                        imgUrl: self.shearObj.imgUrl, //图片
+                        trigger(res) {
+                            // 不要尝试在trigger中使用ajax异步请求修改本次分享的内容，因为客户端分享操作是一个同步操作，这时候使用ajax的回包会还没有返回
+                        },
+                        success(res) {
+                            self.shearNums(journalid);
+                        },
+                        cancel(res) {},
+                        fail(res) {
+                            self.msgalert("分享失败");
+                        }
+                    });
+                    // 分享到朋友圈
+                    self.$wechat.onMenuShareTimeline({
+                        title: self.shearObj.title, //标题
+                        desc: self.shearObj.desc, //描述
+                        link:  `${window.location.href.split('/#/')[0]}/?journalid=${self.journalData.id}&sIndex=${self.activedIndex}`, //连接地址指打开分享时页面地址
+                        imgUrl: self.shearObj.imgUrl, //图片
+                        trigger(res) {
+                            // 不要尝试在trigger中使用ajax异步请求修改本次分享的内容，因为客户端分享操作是一个同步操作，这时候使用ajax的回包会还没有返回
+                        },
+                        success(res) {
+                            self.shearNums(journalid);
+                        },
+                        cancel(res) {
+                            self.msgalert("已取消");
+                        },
+                        fail(res) {
+                            self.msgalert("分享失败");
+                        }
+                    });
+                    self.$wechat.error(function(res) {});
+                });
+            });
+        },
+        ChangeBarrage() {
+            this.BarrageContrData = !this.BarrageContrData;
+        },
+        msgalert(msg) {
+            this.$vux.toast.show({
+                text: msg,
+                type: "text"
+            });
+        },
+        // 点赞
+        getLikedata(Data) {
+            this.get(
+                `EjArticleLike?openid=${this.openId}&articleid=${Data.id}`
+            ).then(res => {
+                if (res.Code == 200) {
+                    this.get(
+                        `GetEjArticlelikelistWhere?cond=openid&arg=${
+                            this.openId
+                        }`
+                    ).then(Response => {
+                        if (Response.Code == 200) {
+                            sessionStorage.setItem(
+                                "likelist",
+                                JSON.stringify(Response.Data)
+                            );
+                            Data.isZan = 1;
+                            Data.likes += 1;
+                        }
+                    });
+                }
+            });
+        },
+        // 分享统计
+        shearNums(id) {
+            this.get(`Share?journalid=${id}`).then(res => {
+                this.getJournalData();
+                this.ShearShow = false;
+            });
+        },
+        // 点击大页面出现隐藏菜单
+        ClickNumChouse() {
+            if (this.menusCNum % 2 == 0) {
+                this.ClickNum++;
+            }
+        },
+        // 出现隐藏导航
+        menuListShow() {
+            this.menusCNum++;
+        },
+        // 页面定位
+        ToThePage(n) {
+            this.mySwiper.slideTo(n, 0, false);
+            this.ClickNum = 0;
+            this.EditIMG(n);
+        },
+        // 初始数据
+        requireData() {
+            let jId = this.$route.query.journalid;
+            this.activedIndex = this.$route.query.sIndex||0;
+            this.get(`GetEjArticlelistWhere?cond=journalid&arg=${jId}`).then(
+                res => {
+                    this.ArticleList = res.Data;
+                    this.BarrageContrul = [];
+                    this.ArticleList.forEach(item => {
+                        item.isZan = 0;
+                        this.BarrageContrul.push(1);
+                    });
+                    if (this.$route.query.listId) {
+                        let ArtIndex = 0;
+                        this.ArticleList.forEach((item, i) => {
+                            if (this.$route.query.listId == item.id) {
+                                ArtIndex = i;
+                            }
+                        });
+                        this.ToMoved(ArtIndex);
+                    } else if(this.$route.query.sIndex){
+                        this.mySwiper.slideTo(this.activedIndex , 800, false);
+                        this.EditIMG(this.activedIndex);
+                    } else {
+                        this.EditIMG(this.activedIndex);
+                    }
+                }
+            )
+        },
+        // 评论列表
+        fondComment(ArId, n) {
+            this.ListLoad = true;
+            this.commentList = [];
+            this.ArticleList[n].commentList = [];
+            if (n == this.activedIndex) {
+                return this.get(
+                    `GetEjArticlecommentWhere?cond=articleid&arg=${ArId}`
+                ).then(res => {
+                    if (res.Code == 200) {
+                        let cids = "";
+                        this.Barragetime = [];
+                        res.Data.forEach(item => {
+                            item.recommentArr = [];
+                            cids += item.id + ",";
+                            let Btimer = Math.random() * 4+ 8;
+                            this.Barragetime.push(Btimer);
+                            item.comment = item.comment.replace(/\]/g ,"],")
+                            if( item.comment.indexOf('[')!=0){
+
+                                item.comment = item.comment.replace('[' ,",[")
+
+                            }
+                        });
+
+                        this.commentList = res.Data;
+                        cids = cids.substring(0, cids.length - 1);
+                        if (cids.length > 0) {
+                            // 回复查询
+                            this.get(
+                                `GetEjCommentreplayByCids?cids=${cids}`
+                            ).then(resp => {
+                                if (resp.Code == 200) {
+                                    resp.Data.forEach(its => {
+                                        its.comment = its.comment.replace(/\]/g ,"],")
+                                        if( its.comment.indexOf('[')!=0){
+
+                                           its.comment = its.comment.replace('[' ,",[")
+
+                                       }
+                                        let commentArr =  its.comment.split(',')
+
+                                        its.commentArr = []
+                                        commentArr.forEach((ele,index)=>{
+                                            if(ele){
+                                                let obj = {}
+                                                if(ele.indexOf("]")==-1){
+                                                    obj.val =  ele;
+                                                    obj.type = '1';
+                                                    obj.key=index
+                                                }else{
+                                                    let val =  ele.replace("]","");
+                                                    val = val.replace("[","");
+                                                    obj.val = val
+                                                    obj.type = '2'
+                                                    obj.key=index
+                                                }
+                                                its.commentArr.push(obj)
+                                            }
+
+                                        });
+                                        this.commentList.forEach(item => {
+                                            if (its.commentid == item.id) {
+                                                item.recommentArr.push(its);
+                                            }
+                                        });
+
+                                    });
+                                }
+                                // this.ArticleList[n]['commentList'] = res.Data;
+                                this.ListLoad = false;
+                                this.BarrageReady = true;
+                            });
+                        } else {
+                            // this.ArticleList[n]['commentList']= res.Data
+                            this.ListLoad = false;
+                            this.BarrageReady = true;
+                        }
+                    }
+                    this.danmuArr = []
+
+                    this.commentList.forEach(items=>{
+                        let commentArr = items.comment.split(",");
+                         items.commentArr = []
+                        commentArr.forEach((ele,index)=>{
+                            if(ele){
+                                let obj = {}
+                                if(ele.indexOf("]")==-1){
+                                    obj.val =  ele;
+                                    obj.type = '1'
+                                     obj.key=index
+                                }else{
+                                    let val =  ele.replace("]","");
+                                    val = val.replace("[","");
+                                     obj.val = val
+                                    obj.type = '2'
+                                     obj.key=index
+                                }
+                                items.commentArr.push(obj)
+                            }
+
+                        });
+
+                        if(items.comment.indexOf('gif')==-1){
+                            this.danmuArr.push(items)
+                        }
+
+                    })
+
+
+                });
+            }
+        },
+        // 获取杂志详情
+        JournDetial(id) {
+            return this.get(`GetEjArticlelistFirst?cond=id&arg=${id}`).then(
+                res => {
+                    return res;
+                }
+            );
+        },
+        // 开始评论
+        ToComment() {
+            this.commonsShow = true;
+            this.RecommonsShow = false;
+            this.commonsBoxShow = true;
+             let ipt2 = this.$refs.textareaBox.querySelector("textarea");
+            if (ipt2) {
+                this.$refs.textareaBox.removeChild(ipt2);
+            }
+            setTimeout(()=>{
+                let ipt = document.createElement("textarea");
+                ipt.classList.add("input_sty");
+                ipt.setAttribute("autocomplete", "off");
+                ipt.setAttribute("autocapitalize", "off");
+                ipt.setAttribute("autocorrect", "off");
+                ipt.setAttribute("spellcheck", "false");
+                ipt.setAttribute("placeholder", "留言将在筛选后显示");
+                ipt.setAttribute("rows", "1");
+                ipt.setAttribute("cols", "30");
+                ipt.setAttribute("id", "myTextarea");
+                this.$refs.textareaBox.appendChild(ipt);
+
+                ipt.addEventListener(
+                    "keyup",
+                    () => {
+                        this.comment = ipt.value;
+                    },
+                    false
+                );
+                this.ipt = ipt;
+                ipt.removeEventListener("focus",
+                    () => {
+                        this.emmortionShow = false;
+                        this. moveEnd(ipt)
+                        let timer = setTimeout(()=>{
+                            document.body.scrollTop = document.body.scrollHeight;
+                            window.clearTimeout(timer)
+
+                        },10)
+                    },false)
+                ipt.addEventListener(
+                    "focus",
+                    () => {
+                        this.emmortionShow = false;
+                        this. moveEnd(ipt)
+                        let timer = setTimeout(()=>{
+                            document.body.scrollTop = document.body.scrollHeight;
+                            window.clearTimeout(timer)
+
+                        },10)
+                    },false
+                );
+                ipt.focus();
+            },100)
+        },
+        // 开始分享
+        ToShear() {
+            this.ShearShow = true;
+            this.shearObj = {
+                title: this.pageDomeData.articlename,
+                desc:  this.journalData.title,
+                imgUrl: this.pageDomeData.imgurl
+            };
+            this.wxduanShare(this.shearObj )
+        },
+        // 返回首页
+        ToHoom(){
+            this.$router.replace({
+                name: "index",
+            });
+        },
+        //评论变化
+        commentChange() {
+            if (this.comment.length >= 255) {
+                let commentT = this.comment;
+                let comment = commentT.substring(0, 255);
+                setTimeout(() => {
+                    this.comment = comment;
+                });
+            }
+        },
+        // 保存评论
+        commentSave() {
+            this.comment = this.$refs.textareaBox.querySelector("textarea").value
+            let articleid = this.ArticleList[this.activedIndex].id;
+            let nickname = localStorage.getItem("sub_nickname");
+            let headimgurl = localStorage.getItem("sub_headimgurl");
+            let openid = localStorage.getItem("sub_openid");
+            let Data = {
+                articleid,
+                nickname,
+                headimgurl,
+                comment: this.comment,
+                openid,
+                ordernum: this.commentList.length,
+                isshow:1
+            };
+            if (Data.comment) {
+                this.BqueryComment = false;
+                this.post("EjArticlecommentSave", Data).then(res => {
+                    if (res.Code == 200) {
+                        this.commonsShow = false;
+                        this.RecommonsShow = false;
+                        this.commonsBoxShow = false;
+                        this.BqueryComment = true;
+                    }
+                });
+            } else {
+                this.$vux.toast.show({
+                    text: "请完成您的评论内容",
+                    type: "text",
+                    width: "11em"
+                });
+            }
+        },
+        // 回复
+        reComment(it, arr=[]) {
+
+            let openId = localStorage.getItem("sub_openid");
+            if(it.openid==openId){
+                return false
+            }
+
+            if(!arr){
+                arr=[]
+            }
+            this.commonsShow = true;
+            this.RecommonsShow = true;
+            this.commonsBoxShow = true;
+            let ipt2 = this.$refs.textareaBox.querySelector("textarea");
+            if (ipt2) {
+                this.$refs.textareaBox.removeChild(ipt2);
+            }
+
+            setTimeout(()=>{
+
+                let ipt = document.createElement("textarea");
+                ipt.classList.add("input_sty");
+                ipt.setAttribute("autocomplete", "off");
+                ipt.setAttribute("autocapitalize", "off");
+                ipt.setAttribute("autocorrect", "off");
+                ipt.setAttribute("spellcheck", "false");
+                ipt.setAttribute("placeholder", "回复"+it.nickname);
+                ipt.setAttribute("rows", "1");
+                ipt.setAttribute("cols", "30");
+                ipt.setAttribute("id", "reComment");
+
+                this.$refs.textareaBox.appendChild(ipt);
+                ipt.removeEventListener("focus",
+                    () => {
+                        this.emmortionShow = false;
+                        this. moveEnd(ipt)
+                        let timer = setTimeout(()=>{
+                            document.body.scrollTop = document.body.scrollHeight;
+                            window.clearTimeout(timer)
+
+                        },10)
+
+                    })
+                ipt.addEventListener(
+                    "focus",
+                    () => {
+                        this.emmortionShow = false;
+                        this. moveEnd(ipt)
+                        let timer = setTimeout(()=>{
+                            document.body.scrollTop = document.body.scrollHeight;
+                            window.clearTimeout(timer)
+
+                        },10)
+                    }
+                );
+                 ipt.addEventListener(
+                    "keyup",
+                    () => {
+                        this.comment = ipt.value;
+                    },
+                    false
+                );
+                ipt.focus();
+
+            },200)
+            this.RecommonData = it;
+            this.ordernum = arr.length;
+        },
+        // 回复
+        reComment1(its){
+            its.commentid = its.id
+
+            this.reComment(its,its.recommentArr)
+        },
+        // 保存回复
+        RecommentSave(item) {
+            this.comment =  document.querySelector("#reComment").value;
+            let articleid = this.ArticleList[this.activedIndex].id;
+            let nickname = localStorage.getItem("sub_nickname");
+            let headimgurl = localStorage.getItem("sub_headimgurl");
+            let openid = localStorage.getItem("sub_openid");
+            let uPdata = {
+                comment: this.comment,
+                commentid: this.RecommonData.commentid,
+                headimgurl,
+                nickname,
+                openid,
+                ordernum: this.ordernum,
+                isshow:1
+            };
+            if (uPdata.comment) {
+                 this.BqueryComment = false;
+                this.post(`EjCommentreplySave`, uPdata).then(res => {
+                    this.commonsShow = false;
+                    this.RecommonsShow = false;
+                    this.commonsBoxShow = false;
+                    this.BqueryComment = true;
+                });
+            } else {
+                this.$vux.toast.show({
+                    text: "请完成您的回复内容",
+                    type: "text",
+                    width: "11em"
+                });
+            }
+        }
+    },
+    computed: {
+        mySwiper() {
+            return this.$refs.mySwiper.swiper;
+        }
+    },
+    watch: {
+        commonsShow() {
+            if (!this.commonsShow) {
+                this.comment = "";
+            }
+        },
+        PointHeight() {
+            if (this.PointHeight < window.innerHeight + 20) {
+                this.BqueryComment = true;
+            }
+            if (this.PointHeight == 9999999) {
+                this.BqueryComment = false;
+            }
+        },
+        BqueryComment() {
+            if (this.BqueryComment) {
+                let timer2 = setTimeout(() => {
+                    this.fondComment(this.pageDomeData.id, this.activedIndex);
+                    window.clearTimeout(timer2)
+                }, 400);
+            }
+        }
+    }
+};
+</script>
+<style scoped lang="less">
+.journal {
+    overflow: hidden !important;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: #efefef;
+    .Myswiper {
+        height: 100%;
+        position: relative;
+    }
+    .first_page {
+        height: 100%;
+        background-color: #000;
+    }
+    .Noopacity {
+        opacity: 0;
+    }
+    .swiper-button-prev {
+        z-index: 10000000;
+    }
+    .Fullmask {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.6);
+        z-index: 59;
+        .shearmsg {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            top: 0;
+            margin: auto;
+            height: 1rem;
+            line-height: 1rem;
+            font-size: 0.5rem;
+            color: #fff;
+        }
+    }
+    .bottom_box {
+        padding-top: 20px;
+        height: 100px;
+        * {
+            color: #ccc;
+            font-size: 12px;
+        }
+    }
+    .commons {
+        position: fixed;
+        bottom: -96px;
+        left: 0;
+        min-height: 96px;
+        overflow-y: auto;
+        width: 100%;
+        z-index: 100;
+        background-color: #fff;
+        padding: 0.2rem 0;
+        &.showcommons {
+            bottom: 0;
+        }
+        .mytextarea {
+            width: 76%;
+            border-radius: 5px;
+        }
+        .my_button {
+            background-color: #ccc;
+            border: none;
+            position: absolute;
+            right: 0.2rem;
+            top: 0.18rem;
+            width: 6em;
+            color: #fff;
+            &.bg_green {
+                background-color: #46c95e;
+            }
+        }
+        .em_btn{
+            z-index: 1000;
+            position: absolute;
+            right:100px;
+            top: 6px;
+            width: 40px;
+            height: 40px;
+            background: url("../../assets/img/images/small.png") center no-repeat/70%;
+        }
+        .key_btn{
+            z-index: 1000;
+            position: absolute;
+            right:100px;
+            top: 6px;
+            width: 40px;
+            height: 40px;
+
+            background: url("../../assets/img/images/keys.png") center no-repeat/70%;
+        }
+    }
+    .emmortion{
+
+        width: 100%;
+        height: 250px;
+        z-index: 100;
+        .Myswiper2{
+            width: 100%;
+            height: 100%;
+            .Myswiper2_slide{
+                width: 100%;
+                height: 100%;
+                background-color: #fff;
+                &.emotionBox{
+                    padding: 0.4rem 0.2rem;
+                }
+                .Myemotion{
+                    width: 10%;
+                    height: 30%;
+                    float: left;
+                    &.delect{
+                        background: url("../../assets/img/images/delect.png") top center no-repeat/80%;
+                    }
+                }
+                .img_box{
+                    width: 25%;
+                    height: 120px;
+                    line-height: 100px;
+                    text-align: center;
+                    float: left;
+                    img{
+                        width: 80%;
+                    }
+                }
+            }
+        }
+    }
+    .Myiframe_box {
+        z-index: 2;
+        background-color: #eee;
+    }
+    .next,
+    .prove {
+        z-index: 100000;
+        height: 1rem;
+        width: 1rem;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: red;
+    }
+    .pageCard {
+        img {
+            vertical-align: top;
+        }
+    }
+    .NotClick {
+        position: relative;
+        .masks {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            left: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+        }
+    }
+    .prove {
+        left: 0;
+    }
+    .next {
+        right: 0;
+    }
+    .Myiframe {
+        width: 100%;
+    }
+    .commentList_box {
+        padding-top:.3rem;
+        background-color: #eee;
+        .comment_title {
+            height: 0.7rem;
+            line-height: 0.6rem;
+            font-size: 0.26rem;
+            padding: 0 0.3rem;
+            text-align: left;
+            .fl {
+                font-size: 0.26rem;
+                float: left;
+            }
+            .fr {
+                font-size: 0.26rem;
+                float: right;
+                padding-left: 2em;
+                color: #576b95;
+            }
+        }
+        .commentList_ul {
+            min-height: 1rem;
+            padding-bottom: 60px;
+        }
+        li {
+            width: 100%;
+            padding: 0.2rem 0.3rem;
+            box-sizing: border-box;
+            .left {
+                width: 0.6rem;
+                height: 0.6rem;
+                float: left;
+                img {
+                    width: 100%;
+                    height: 100%;
+
+                }
+            }
+            .right {
+                margin-left: 0.8rem;
+                .name {
+                    text-align: left;
+                    font: 400  0.26rem/.32rem "Microsoft Yahei";
+                    color: #999;
+                }
+                .content {
+                    &.imgBox{
+                        text-align: left;
+                    }
+                    p {
+                        margin: 0;
+                        text-align: left;
+                        span{
+                            font: 400 0.26rem/.46rem "Microsoft Yahei";
+                            color: #000;
+                        }
+
+                    }
+                    .itsImg{
+                        width: 100px;
+                        height: 100px;
+                        // margin-left: 30px;
+                    }
+                    .Recomment {
+                        ul li {
+                            overflow: hidden;
+                        }
+                        .Recomment_li {
+                            padding: 0 5px;
+                            background-color: #eee;
+                            line-height: 30px;
+                            border-radius: 3px;
+
+                        }
+                        .Nickname {
+                            float: left;
+                            padding: 0;
+                            line-height: 30px;
+                            font-size: 0.24rem;
+                            color: deepskyblue;
+                        }
+                        .huifu {
+                            float: left;
+                            padding: 0;
+                            line-height: 30px;
+                            font-size: 0.24rem;
+                            color: #333;
+                        }
+                        .RecommentInfo {
+
+                            float: left;
+                            padding: 0;
+                            span{
+                                display: inline-block;
+                                line-height: 30px;
+                                font-size: 0.24rem;
+                                color: #999;
+                                &.infos{
+                                    // line-height: 34px;
+                                    vertical-align: middle;
+
+
+                                }
+                            }
+                             line-height: 30px;
+                            font-size: 0.24rem;
+                            color: #999;
+
+                        }
+                        .img_box{
+                            margin-top: 0.4rem;
+                            text-align: left;
+                            padding-left: .2rem;
+                             img{
+                                height: 100px;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    .commentListLoad {
+        height: 140px;
+        background: url("http://img.mp.itc.cn/upload/20170414/d55b84f2d64c490ba617de0c397521ec.gif")
+            center no-repeat;
+        background-size: 80%;
+    }
+    .navBar {
+        height: 40px;
+        width: 100%;
+        background-color: #000;
+        position: absolute;
+        bottom: -40px;
+        left: 0;
+        z-index: 3;
+        transition: bottom 0.4s;
+        &.actived {
+            bottom: 0;
+        }
+        .Barragebtn {
+            float: left;
+            width: 40px;
+            height: 40px;
+            span {
+                width: 40px;
+                float: left;
+                height: 40px;
+                color: #fff;
+                text-align: left;
+                line-height: 40px;
+            }
+            .Barrage {
+                background: url("../../assets/img/images/Barrage.png") center
+                    30% no-repeat;
+                background-size: 66%;
+                &.BarrageClose {
+                    background: url("../../assets/img/images/BarrageClose.png")
+                        center 30% no-repeat;
+                    background-size: 66%;
+                }
+            }
+        }
+        .btn {
+            float: left;
+            width: 70px;
+            height: 40px;
+
+            span:nth-child(1) {
+                width: 40px;
+                float: left;
+                height: 40px;
+                color: #fff;
+                text-align: left;
+                line-height: 40px;
+            }
+             span:nth-child(2) {
+                float: left;
+                height: 40px;
+                color: #fff;
+                text-align: left;
+                line-height: 40px;
+            }
+            .heart {
+                background: url("../../assets/img/images/heart.png") center 10%
+                    no-repeat;
+                background-size: 80%;
+            }
+            .heart2 {
+                background: url("../../assets/img/images/heart1.png") center 10%
+                    no-repeat;
+                background-size: 80%;
+            }
+            .comment {
+                background: url("../../assets/img/images/comment.png") center
+                    10% no-repeat;
+                background-size: 80%;
+            }
+
+            .shear {
+                background: url("../../assets/img/images/shear.png") center 10%
+                    no-repeat;
+                background-size: 80%;
+            }
+            .hoom{
+                background: url("../../assets/img/images/goHoom.png") center 10%
+                    no-repeat;
+                background-size: 80%;
+            }
+        }
+        .btn_menu {
+            float: right;
+            width: 40px;
+            height: 40px;
+            .menu {
+                float: right;
+                width: 40px;
+                height: 40px;
+                background: url("../../assets/img/images/menus.png") center 10%
+                    no-repeat;
+                background-size: 72%;
+            }
+
+        }
+    }
+    .menuList {
+        height: 251px;
+        width: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        position: absolute;
+        bottom: -251px;
+        left: 0;
+        z-index: 2;
+        transition: bottom 0.4s;
+        &.menus {
+            bottom: 0;
+        }
+        .top_btn {
+            height: 40px;
+            background: url("../../assets/img/images/downs.png") center
+                no-repeat;
+            background-size: contain;
+        }
+        .lists {
+            height: 165px;
+            overflow-x: auto;
+        }
+        ul {
+            white-space: nowrap;
+            text-align: left;
+            display: inline-block;
+            li {
+                display: inline-block;
+                vertical-align: top;
+                height: 160px;
+                margin-left: 5px;
+                width: 120px;
+                background-color: #333;
+                margin-right: 5px;
+                line-height: 160px;
+                img {
+                    width: 100%;
+                    margin: auto;
+                }
+            }
+        }
+    }
+}
+</style>
+<style lang="less">
+.journal {
+
+    .absitem {
+        position: absolute;
+        top: 30px;
+        white-space: nowrap;
+        z-index: 9;
+        font-size: 14px;
+        border-radius: 1em;
+        background: rgba(0, 0, 0, 0.3);
+        p {
+            color: #fff;
+            padding: 0 20px 0 0;
+            margin: 0;
+            font: 400 14px/2em "微软雅黑";
+            img {
+                width: 2em;
+                height: 2em;
+                border-radius: 50%;
+            }
+            span {
+                vertical-align: top;
+                margin-left: 10px;
+            }
+        }
+    }
+    @keyframes danmu {
+        from {
+            left: 100%;
+        }
+        to {
+            left: -100%;
+        }
+    }
+    .input_sty {
+        padding-left:1em;
+        float: left;
+        word-wrap: break-word;
+        color: inherit;
+        min-height: 4.5em;
+        width: 64%;
+        line-height: 1.5em;
+        font-size: 14px;
+        height: auto;
+        border: none;
+        height: 95%;
+        resize: none;
+        outline: none;
+    }
+    .Myswiper-slide {
+        height: 100%;
+        overflow-y: auto;
+        .first_page {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            .f_img_box {
+                position: absolute;
+                width: 100%;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                img {
+                    width: 100%;
+                }
+            }
+        }
+        .pages_box {
+            height: auto;
+            overflow-x: hidden;
+            .headerImg {
+                img {
+                    width: 100%;
+                }
+            }
+        }
+        p {
+            margin: 0;
+            line-height: 1.5em;
+        }
+        .audio_box {
+            .audio_Dom {
+                width: 100%;
+                height: 100%;
+                background-color: #eee;
+                border-radius: 5px;
+                position: relative;
+                .left {
+                    width: 1rem;
+                    float: left;
+                    background: url("https://img.guoanfamily.com/Zqs6cGiwVN0MqSP5rq8LmcGcKRW9M_LqF072IVcIgE_hqJvABYyrYogfTzt1ZUV9.jpg")
+                        center no-repeat;
+                    background-size: 60%;
+                    height: 100%;
+                    &.active {
+                        background: url("https://img.guoanfamily.com/9kUQhufca4ghQmVqUtt9cXYH6rda7tfJqCuAQFkQ31hZwSMGSwSLxCeiSl1AwhA9.jpg")
+                            center no-repeat;
+                        background-size: 60%;
+                        height: 100%;
+                    }
+                }
+                .right {
+                    .titles {
+                        line-height: 0.5rem;
+                        font-size: 0.3rem;
+                    }
+                    width: 100%;
+                    padding-left: 1rem;
+                }
+                .timers {
+                    position: absolute;
+                    bottom: 0.1rem;
+                    right: 0.1rem;
+                }
+            }
+        }
+        .firstPage {
+            width: 100%;
+            height: 100%;
+        }
+    }
+    .articalTop {
+        margin-bottom: 0.75rem;
+        .articalTopInner {
+            padding-top:0.5rem;
+            text-align: left;
+            min-height: 1rem;
+
+            position: relative;
+            .uline{
+               width:95%;
+               margin:0 auto;
+               border-bottom: 1px solid #ccc;
+            }
+            .titles_box {
+                padding: 0.1rem 0.2rem;
+                // position: absolute;
+                left: 0;
+                bottom: 0;
+            }
+            .titles {
+                font-size: 0.3rem;
+                line-height: 1.5em;
+            }
+            .titlesInfo {
+                margin-top: 0.8em;
+                font-size: 0.2rem;
+                line-height: 1.5em;
+            }
+        }
+    }
+    .contentsSty {
+        //  padding:rem 0;
+        .novidio {
+            display: none;
+        }
+        .Play {
+            position: relative;
+            &::before {
+                content: "";
+                position: absolute;
+                width:50px;
+                height: 50px;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: url("../../assets/img/images/play.png") center
+                    no-repeat;
+                background-size: 36%;
+                background-color: rgba(255, 255, 255, 0.7);
+                border-radius: 50%;
+            }
+        }
+        * {
+            font-size: 0.3rem;
+            text-align: left;
+        }
+        .emotion{
+            width:0.4rem;
+            height:0.4rem;
+            margin-top: -0.06rem;
+            vertical-align:middle;
+        }
+        img {
+            margin: 0;
+        }
+        p {
+             padding: 0 0.5rem;
+
+            &.padd0 {
+                padding: 0 0.2rem;
+            }
+            &.padd1 {
+                padding: 0;
+                 &>span {
+                     padding: 0 0.2rem;
+                     display: inline-block;
+                    img {
+                        width: 100%;
+                    }
+                }
+            }
+
+            &.padd2 {
+                 padding:0;
+                 &>span{
+                    display: inline-block;
+                    padding:0 0.2rem;
+                 }
+            }
+        }
+        .vux-divider {
+            color: #ccc;
+            span {
+                color: #ccc;
+            }
+        }
+        ol,
+        ol > li {
+            margin: 5px 0;
+            list-style: decimal;
+            list-style-type: decimal;
+
+        }
+        table {
+            border-spacing: 0;
+            th,
+            tr {
+            }
+            td {
+                border: 1px solid #ccc;
+            }
+
+            ul,
+            ol {
+                padding-left: 20px;
+                list-style-type: decimal;
+
+
+            }
+            ul,
+            ul > li {
+                margin: 5px 0;
+                list-style: disc;
+            }
+        }
+        img {
+            width: 100%;
+            height: auto;
+        }
+        video {
+            width: 100%;
+        }
+    }
+
+    .absitem p span{
+        margin-left: 2px;
+        border-radius:50%;
+        vertical-align: middle;
+
+    }
+
+    .vux-static-emotion{
+        border-radius:50%;
+        vertical-align: top;
+
+    }
+}
+
+</style>
+

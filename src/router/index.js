@@ -1,0 +1,33 @@
+import Vue from 'vue'
+import Router from 'vue-router'
+
+Vue.use(Router)
+const index = resolve => require(['../views/index'], resolve) // 首页
+const journal = resolve => require(['../views/journals/journal'], resolve) // 首页
+const comment = resolve => require(['../views/journals/comment'], resolve) // 首页
+
+
+export default new Router({
+    routes: [{
+        path: '/',
+        name: 'index',
+        component: index,
+        meta: {
+            title: '电子期刊'
+        }
+    }, {
+        path: '/journal',
+        name: 'journal',
+        component: journal,
+        meta: {
+            title: '电子期刊'
+        }
+    }, {
+        path: '/comment',
+        name: 'comment',
+        component: comment,
+        meta: {
+            title: '评论'
+        }
+    }]
+})

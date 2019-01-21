@@ -1,0 +1,81 @@
+<template>
+  <div id="app" class="app" >
+    <div v-wechat-title="$route.meta.title"></div>
+
+    <router-view class="routerSty"></router-view>
+
+  </div>
+</template>
+
+<script>
+import "./common/wxjump.js"
+
+export default {
+  name: 'App',
+
+  data(){
+    return {
+      HeadeShow:true,
+      headShow:true,
+      drawerVisibility:false,
+      showModeValue: "push", //推出来效果
+      showPlacementValue: "left", //从左画出
+
+    }
+  },
+  methods: {
+    ShowUser(){
+      this.drawerVisibility = true
+    },
+    closed(){
+      this.drawerVisibility = false;
+    }
+  },
+
+  created(){
+    let local = window.location.href
+    if(local.indexOf("mt")!=-1){
+      window.$wxjump.getUserInfo()
+    }
+    this.headShow = this.$route.meta.head
+  },
+  watch:{
+    $route(){
+      if(this.$route.name=="HotSearch"){
+        this.HeadeShow = false;
+      }else{
+        this.HeadeShow = true;
+      }
+      this.headShow = this.$route.meta.head
+
+    }
+  }
+}
+</script>
+
+<style lang="less" scoped>
+.app{
+  height: 100%;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  .routerSty{
+    -webkit-overflow-scrolling: touch;
+    height: 100%;
+    background-color: #fff;
+    overflow: auto;
+  }
+}
+</style>
+<style lang="less">
+.app{
+  .routerSty{
+    &.firstPage{
+      // background-color: #000;
+    }
+  }
+}
+
+
+</style>
+
